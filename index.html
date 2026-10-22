@@ -28,7 +28,9 @@
   --r-s: 10px;
   --r-m: 16px;
   --r-l: 22px;
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.04), 0 6px 24px rgba(0, 0, 0, 0.05);
+  --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.07), 0 8px 24px rgba(0, 0, 0, 0.06);
+  --field-border: #c7c7cc;
+  --card-border: rgba(0, 0, 0, 0.09);
   --shadow-2: 0 20px 60px rgba(0, 0, 0, 0.18);
   --ease: cubic-bezier(0.22, 0.8, 0.24, 1);
   --spring: cubic-bezier(0.34, 1.35, 0.64, 1);
@@ -82,11 +84,11 @@ kbd { font: 600 11px var(--font); background: #fff; border: 1px solid var(--line
 .link { background: none; border: 0; color: var(--accent); padding: 0; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; }
 .link:hover { text-decoration: underline; }
 .field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--text2); font-weight: 500; }
-.field input, .field select, .set-card input, .set-card select, .map select, .pager select, .mini-row select { height: 40px; border: 1px solid transparent; background: var(--fill); border-radius: var(--r-s); padding: 0 12px; color: var(--text); font-size: 15px; transition: border-color 0.2s, background 0.2s, box-shadow 0.2s; width: 100%; }
+.field input, .field select, .set-card input, .set-card select, .map select, .pager select, .mini-row select { height: 40px; border: 1px solid var(--field-border); background: #fff; border-radius: var(--r-s); padding: 0 12px; color: var(--text); font-size: 15px; transition: border-color 0.2s, background 0.2s, box-shadow 0.2s; width: 100%; }
 .field input:focus, .field select:focus, .set-card input:focus, .set-card select:focus, .map select:focus { outline: none; background: #fff; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
 .field.inline input { height: 36px; font-size: 14px; }
 .field.grow { flex: 1; min-width: 180px; }
-textarea { width: 100%; border: 1px solid transparent; background: var(--fill); border-radius: var(--r-s); padding: 10px 12px; resize: vertical; font-size: 14px; }
+textarea { width: 100%; border: 1px solid var(--field-border); background: #fff; border-radius: var(--r-s); padding: 10px 12px; resize: vertical; font-size: 14px; }
 textarea:focus { outline: none; background: #fff; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
 .check { display: flex; align-items: center; gap: 10px; padding: 7px 4px; cursor: pointer; font-size: 14px; }
 .check input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
@@ -104,8 +106,7 @@ textarea:focus { outline: none; background: #fff; border-color: var(--accent); b
 .login-card > *, .login-form > * { animation: rise 0.8s var(--ease) both; animation-delay: calc(var(--i, 0) * 90ms + 100ms); }
 .login-logo { display: grid; place-items: center; margin-bottom: 18px; }
 .login-logo .draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 0.7s 0.6s var(--ease) forwards; }
-.login-card h1 { font-size: 48px; line-height: 1.05; letter-spacing: -0.03em; font-weight: 700; }
-.login-sub { color: var(--text2); font-size: 18px; margin: 10px 0 30px; }
+.login-card h1 { font-size: 48px; line-height: 1.05; letter-spacing: -0.03em; font-weight: 700; margin-bottom: 32px; }
 .login-form { display: flex; flex-direction: column; gap: 14px; text-align: left; }
 .login-err { min-height: 18px; color: #d70015; font-size: 13px; text-align: center; }
 .login-form.shake { animation: shake 0.4s; }
@@ -139,8 +140,8 @@ textarea:focus { outline: none; background: #fff; border-color: var(--accent); b
 .head-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
 /* ---------- cards & grid ---------- */
-.card { background: var(--surface); border-radius: var(--r-l); box-shadow: var(--shadow-1); padding: 24px; min-width: 0; }
-.card.flat { background: var(--bg); box-shadow: none; padding: 16px 18px; border-radius: var(--r-m); }
+.card { background: var(--surface); border: 1px solid var(--card-border); border-radius: var(--r-l); box-shadow: var(--shadow-1); padding: 24px; min-width: 0; }
+.card.flat { background: var(--bg); border: 0; box-shadow: none; padding: 16px 18px; border-radius: var(--r-m); }
 .card-h { margin-bottom: 18px; } .card-h h2 { font-size: 19px; letter-spacing: -0.02em; font-weight: 650; } .card-h p { color: var(--text2); font-size: 13px; margin-top: 2px; }
 .grid { display: grid; gap: 20px; margin-bottom: 20px; }
 .g2 { grid-template-columns: 1fr 1fr; } .g3 { grid-template-columns: repeat(3, 1fr); } .span2 { grid-column: span 2; }
@@ -150,7 +151,7 @@ textarea:focus { outline: none; background: #fff; border-color: var(--accent); b
 /* ---------- KPIs ---------- */
 .kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 20px; }
 @media (max-width: 1180px) { .kpis { grid-template-columns: repeat(3, 1fr); } } @media (max-width: 640px) { .kpis { grid-template-columns: 1fr 1fr; } }
-.kpi { text-align: left; border: 0; background: #fff; border-radius: var(--r-l); box-shadow: var(--shadow-1); padding: 18px 18px 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; animation: rise 0.65s var(--ease) both; animation-delay: var(--d); transition: transform 0.3s var(--ease), box-shadow 0.3s; position: relative; overflow: hidden; }
+.kpi { text-align: left; border: 1px solid var(--card-border); background: #fff; border-radius: var(--r-l); box-shadow: var(--shadow-1); padding: 18px 18px 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; animation: rise 0.65s var(--ease) both; animation-delay: var(--d); transition: transform 0.3s var(--ease), box-shadow 0.3s; position: relative; overflow: hidden; }
 .kpi:hover { transform: translateY(-3px); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04), 0 14px 34px rgba(0, 0, 0, 0.1); }
 .kpi:active { transform: scale(0.98); }
 .kpi-l { color: var(--text2); font-size: 13px; font-weight: 500; }
@@ -215,7 +216,7 @@ h3 .tag { vertical-align: middle; font-size: 11px; }
 
 /* ---------- toolbar, chips, segmented ---------- */
 .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
-.search { position: relative; flex: 1; min-width: 240px; display: flex; align-items: center; background: #fff; border-radius: 12px; box-shadow: var(--shadow-1); padding: 0 14px; gap: 10px; color: var(--text3); transition: box-shadow 0.2s; }
+.search { position: relative; flex: 1; min-width: 240px; display: flex; align-items: center; background: #fff; border: 1px solid var(--field-border); border-radius: 12px; box-shadow: var(--shadow-1); padding: 0 14px; gap: 10px; color: var(--text3); transition: box-shadow 0.2s; }
 .search:focus-within { box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow-1); }
 .search input { flex: 1; border: 0; background: none; height: 42px; font-size: 15px; outline: none; color: var(--text); min-width: 0; }
 .stage-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
@@ -228,8 +229,9 @@ h3 .tag { vertical-align: middle; font-size: 11px; }
 .chip.clear { background: none; color: var(--text2); padding-right: 12px; }
 
 /* ---------- table ---------- */
-.table-card { background: #fff; border-radius: var(--r-l); box-shadow: var(--shadow-1); overflow: hidden; }
+.table-card { background: #fff; border: 1px solid var(--card-border); border-radius: var(--r-l); box-shadow: var(--shadow-1); overflow: hidden; }
 .table-scroll { overflow: auto; max-height: calc(100vh - 290px); min-height: 200px; }
+.hscroll { overflow-x: auto; }
 .grid-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
 .grid-table th { position: sticky; top: 0; z-index: 2; background: rgba(251, 251, 253, 0.92); backdrop-filter: blur(12px); text-align: left; padding: 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .grid-table th button { border: 0; background: none; padding: 13px 12px; font-size: 12.5px; font-weight: 600; color: var(--text2); display: inline-flex; align-items: center; gap: 4px; width: 100%; text-align: left; transition: color 0.15s; }
@@ -365,7 +367,7 @@ h3 .tag { vertical-align: middle; font-size: 11px; }
 /* ---------- uploads page ---------- */
 .timeline { list-style: none; margin: 0; padding: 0 0 0 28px; position: relative; display: grid; gap: 18px; } .timeline::before { content: ''; position: absolute; left: 7px; top: 14px; bottom: 14px; width: 2px; background: var(--fill2); border-radius: 2px; }
 .tl-item { position: relative; animation: rise 0.6s var(--ease) both; animation-delay: calc(var(--n) * 70ms); } .tl-dot { position: absolute; left: -28px; top: 26px; width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 3px solid #c7c7cc; } .tl-item.cur .tl-dot { border-color: var(--accent); background: var(--accent); box-shadow: 0 0 0 5px var(--accent-soft); }
-.tl-card { background: #fff; border-radius: var(--r-l); box-shadow: var(--shadow-1); padding: 22px 24px; display: grid; gap: 16px; } .tl-top { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; } .tl-top h3 { font-size: 19px; letter-spacing: -0.02em; } .tl-top p { color: var(--text2); font-size: 13.5px; margin-top: 3px; } .tl-note { font-style: italic; }
+.tl-card { background: #fff; border: 1px solid var(--card-border); border-radius: var(--r-l); box-shadow: var(--shadow-1); padding: 22px 24px; display: grid; gap: 16px; } .tl-top { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; } .tl-top h3 { font-size: 19px; letter-spacing: -0.02em; } .tl-top p { color: var(--text2); font-size: 13.5px; margin-top: 3px; } .tl-note { font-style: italic; }
 .tl-act { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .tl-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 520px; } .tl-stats b { display: block; font-size: 22px; letter-spacing: -0.02em; } .tl-stats span { font-size: 12px; color: var(--text2); }
 
@@ -414,7 +416,7 @@ h3 .tag { vertical-align: middle; font-size: 11px; }
 .pick-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .pick-tile .icon-btn { position: absolute; top: 4px; right: 4px; background: rgba(255, 255, 255, 0.92); }
 .mail-list { display: grid; gap: 10px; margin-top: 18px; }
-.mail { background: var(--surface); border-radius: var(--r-m); box-shadow: var(--shadow-1); }
+.mail { background: var(--surface); border: 1px solid var(--card-border); border-radius: var(--r-m); box-shadow: var(--shadow-1); }
 .mail.sent { opacity: 0.78; }
 .mail summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 14px 18px; }
 .mail summary::-webkit-details-marker { display: none; }
@@ -425,12 +427,12 @@ h3 .tag { vertical-align: middle; font-size: 11px; }
 .mail-to em { font-style: normal; font-size: 13px; color: var(--text2); }
 .mail-body { padding: 0 18px 16px 62px; }
 .mail-body pre { margin: 0; font: 14px/1.5 var(--font); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); background: var(--bg); padding: 14px 16px; border-radius: 12px; }
-.con-table input { width: 100%; height: 34px; border: 0; border-radius: 9px; background: var(--fill); padding: 0 10px; font-size: 14px; color: var(--text); }
-.con-table input:focus { outline: none; box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.3); background: #fff; }
+.con-table input { width: 100%; height: 34px; border: 1px solid var(--field-border); border-radius: 9px; background: #fff; padding: 0 10px; font-size: 14px; color: var(--text); }
+.con-table input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.3); }
 .con-table td { padding: 7px 8px 7px 0; }
 .con-table code { font-size: 12.5px; color: var(--text2); }
 .add-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; margin: 14px 0 6px; }
-.add-row input { height: 36px; border: 0; border-radius: 10px; background: var(--fill); padding: 0 12px; font-size: 14px; }
+.add-row input { height: 36px; border: 1px solid var(--field-border); border-radius: 10px; background: #fff; padding: 0 12px; font-size: 14px; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .mini-table.perf td, .mini-table.perf th { padding-right: 10px; }
 .mini-table .r { text-align: right; }
@@ -664,8 +666,10 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     a.forEach((x) => b.has(x) && i++);
     return i / (a.size + b.size - i || 1);
   };
+  /* Text starting with = + - @ is prefixed with ' so spreadsheet apps do not run it as a formula. */
   U.csvEscape = (v) => {
-    const s = String(v == null ? '' : v);
+    let s = String(v == null ? '' : v);
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
     return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   };
 })();
@@ -727,8 +731,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   ];
   D.classById = Object.fromEntries(D.CLASSES.map((c) => [c.id, c]));
 
+  D.APP_NAME = 'Rectify';
+
   D.DEFAULTS = {
-    projectName: 'Rectify',
     classMap: {
       minor: 'Minor',
       major: 'Major',
@@ -897,6 +902,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
   S.init = async () => {
     if (window.indexedDB) RETIRED_DBS.forEach((name) => indexedDB.deleteDatabase(name));
+    /* ask the browser not to clear this site's data when the disk runs low */
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     await open();
     return true;
   };
@@ -1463,7 +1470,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const isCsv = /\.csv$/i.test(file.name);
     let wb;
     try {
-      wb = XLSX.read(buf, { type: 'array' });
+      /* CSV is read as plain text, so a cell starting with = is kept as text rather than taken as a formula */
+      wb = XLSX.read(buf, isCsv ? { type: 'array', raw: true } : { type: 'array' });
     } catch (e) {
       throw new Error('This file could not be read as an Excel or CSV file.');
     }
@@ -1929,7 +1937,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
     const s = D.summarize(rows);
     const sum = [
-      [ctx.projectName + ' – defect summary'],
+      [D.APP_NAME + ' – defect summary'],
       ['As of', U.fmtDate(U.isoToday())],
       ['Filters', ctx.filtersText || 'None'],
       [],
@@ -1968,7 +1976,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const bar = (label, n, color) =>
       '<tr><td>' + esc(label) + '</td><td class="pr-bar"><i style="width:' + (s.total ? (n / s.total) * 100 : 0) + '%;background:' + color + '"></i></td><td class="r">' + n + '</td></tr>';
     let html =
-      '<section class="pr-page"><header class="pr-head"><div><h1>' + esc(ctx.projectName) + '</h1><p>Defect report</p></div><div class="pr-meta">' +
+      '<section class="pr-page"><header class="pr-head"><div><h1>' + esc(D.APP_NAME) + '</h1><p>Defect report</p></div><div class="pr-meta">' +
       'As of ' + U.fmtDate(U.isoToday()) + (ctx.user ? '<br>Printed by ' + esc(ctx.user) : '') + '</div></header>' +
       (ctx.filtersText ? '<p class="pr-filter">Filtered view: ' + esc(ctx.filtersText) + '</p>' : '') +
       '<div class="pr-kpis">' + kpi(s.total, 'Defects') + kpi(s.open, 'Open') + kpi(s.safetyOpen, 'Safety Related, open') + kpi(s.byStage.awaiting, 'Awaiting STEL acceptance') + kpi(s.overdue, 'Overdue') + kpi(s.closed, 'Closed') + '</div>' +
@@ -2431,7 +2439,6 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       '<div class="login-card">' +
       '<div class="login-logo" style="--i:0">' + UI.logo(56, true) + '</div>' +
       '<h1 style="--i:1">Rectify</h1>' +
-      '<p class="login-sub" style="--i:2">Every inspection defect, from first photo to sign-off.</p>' +
       '<form class="login-form" style="--i:3" novalidate>' +
       '<label class="field"><span>Email</span><input name="email" type="email" autocomplete="username" placeholder="name@company.com" required></label>' +
       '<label class="field"><span>Password</span><input name="password" type="password" autocomplete="current-password" placeholder="Password" required></label>' +
@@ -2751,6 +2758,11 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         next.contractorId = input.contractorId;
         next.dueDate = input.dueDate;
         next.assignedAt = now;
+        if (!sameContractor) {
+          /* the previous contractor's fix belongs to them; the new contractor starts clean */
+          next.fixNote = '';
+          next.submittedAt = null;
+        }
         event.contractorId = input.contractorId;
         event.previousContractorId = sameContractor ? null : defect.contractorId || null;
         event.dueDate = input.dueDate;
@@ -2829,11 +2841,15 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   const STARTER_CONTRACTORS = ['Contractor A', 'Contractor B'];
 
   /* ---------- settings ---------- */
+  /* Only known settings are read, so values from older builds are dropped. */
   App.loadSettings = async () => {
     const saved = (await DT.store.getKV('settings')) || {};
-    D.settings = Object.assign(U.clone(D.DEFAULTS), saved);
-    D.settings.classMap = Object.assign({}, D.DEFAULTS.classMap, saved.classMap || {});
-    D.settings.mailboxes = Object.assign({}, D.DEFAULTS.mailboxes, saved.mailboxes || {});
+    D.settings = U.clone(D.DEFAULTS);
+    Object.keys(D.DEFAULTS).forEach((k) => {
+      if (saved[k] === undefined) return;
+      const isMap = typeof D.DEFAULTS[k] === 'object' && !Array.isArray(D.DEFAULTS[k]);
+      D.settings[k] = isMap ? Object.assign({}, D.DEFAULTS[k], saved[k]) : saved[k];
+    });
     S.cols = (await DT.store.getKV('cols')) || DT.exporter.COLUMNS.filter((c) => c.def).map((c) => c.id);
   };
   App.saveSettings = () => DT.store.setKV('settings', D.settings);
@@ -3008,23 +3024,17 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const app = U.$('#app');
     app.innerHTML =
       '<header class="nav"><div class="nav-in">' +
-      '<a class="brand" href="#/overview"><span class="logo">' + UI.logo(26) + '</span><span id="brandName"></span></a>' +
+      '<a class="brand" href="#/overview"><span class="logo">' + UI.logo(26) + '</span><span>' + esc(D.APP_NAME) + '</span></a>' +
       '<nav class="tabs" id="tabs" aria-label="Main"><span class="tab-ind"></span>' +
       allowedRoutes().map((r) => '<a href="#/' + r.id + '" data-r="' + r.id + '">' + esc(r.label) + (r.id === 'emails' ? '<em class="badge" id="emailBadge" hidden></em>' : '') + '</a>').join('') +
       '</nav>' +
       '<div class="nav-r"><button class="btn primary" id="btnUpload">' + UI.icon('upload', 16) + '<span>Upload</span></button><button class="avatar-btn" id="btnUser" aria-label="Account" aria-haspopup="menu"></button></div>' +
       '</div></header><main id="view" class="page" tabindex="-1"></main>';
-    U.$('#brandName').textContent = D.settings.projectName;
-    document.title = D.settings.projectName;
     U.$('#btnUser').innerHTML = '<span class="avatar">' + esc(U.initials(S.user.name)) + '</span>';
     U.$('#btnUpload').hidden = !DT.auth.can('upload');
     U.$('#btnUpload').addEventListener('click', () => DT.views.upload.open());
     U.$('#btnUser').addEventListener('click', (e) => userMenu(e.currentTarget));
   }
-  App.refreshBrand = () => {
-    U.$('#brandName').textContent = D.settings.projectName;
-    document.title = D.settings.projectName;
-  };
 
   function userMenu(anchor) {
     const items = [{ header: 'Signed in as ' + DT.auth.roleLabel(S.user) }, { header: 'Switch demo account' }];
@@ -3296,7 +3306,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       return { n, open: mine.filter((r) => r.open).length, overdue: mine.filter((r) => r.overdue).length, rework: mine.filter((r) => r.open && r.rework).length, closed: mine.filter((r) => r.closed).length, avg };
     });
     U.$('#cPerf').innerHTML = perf.length
-      ? '<div class="table-scroll"><table class="mini-table perf"><thead><tr><th>Contractor</th><th class="r">Open</th><th class="r">Overdue</th><th class="r">Rework</th><th class="r">Closed</th><th class="r">Avg days to fix</th></tr></thead><tbody>' +
+      ? '<div class="hscroll"><table class="mini-table perf"><thead><tr><th>Contractor</th><th class="r">Open</th><th class="r">Overdue</th><th class="r">Rework</th><th class="r">Closed</th><th class="r">Avg days to fix</th></tr></thead><tbody>' +
         perf.map((p) => '<tr><td><b>' + esc(p.n) + '</b></td><td class="r">' + p.open + '</td><td class="r' + (p.overdue ? ' late' : '') + '">' + p.overdue + '</td><td class="r">' + p.rework + '</td><td class="r">' + p.closed + '</td><td class="r">' + (p.avg == null ? '–' : p.avg) + '</td></tr>').join('') +
         '</tbody></table></div>'
       : '<div class="muted">No contractors set up yet.</div>';
@@ -3362,7 +3372,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
   /* ---------- export menu (shared with Overview) ---------- */
   DT.views.exportMenu = (anchor, getRows) => {
-    const ctx = () => ({ projectName: D.settings.projectName, filtersText: F.describe(S.filters), imports: DT.auth.can('imports') ? S.imports : [], user: DT.auth.roleLabel(S.user) });
+    const ctx = () => ({ filtersText: F.describe(S.filters), imports: DT.auth.can('imports') ? S.imports : [], user: DT.auth.roleLabel(S.user) });
     const rows = () => sorted(getRows());
     UI.menu(anchor, [
       { header: 'Export ' + U.plural(getRows().length, 'defect') },
@@ -4351,11 +4361,10 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     root.innerHTML =
       '<div class="page-head"><div><h1>Settings</h1><p class="lede">Master control for contractors, email addresses and how the register is read.</p></div></div>' +
       '<div class="settings">' +
-      sec('Project', 'Shown in the header, on reports and in emails.', '<label class="field"><span>Project name</span><input id="sName" value="' + esc(set.projectName) + '" maxlength="40"></label>') +
       sec(
         'Contractors',
         'LTA assigns defects to these companies. Each company has its own login and sees only its own defects.',
-        '<div class="table-scroll"><table class="mini-table con-table"><thead><tr><th>Company</th><th>Email for notifications</th><th>Demo login</th><th class="r">Open defects</th><th></th></tr></thead><tbody>' +
+        '<div class="hscroll"><table class="mini-table con-table"><thead><tr><th>Company</th><th>Email for notifications</th><th>Demo login</th><th class="r">Open defects</th><th></th></tr></thead><tbody>' +
           contractors.map((c) => '<tr data-cid="' + c.id + '"><td><input data-f="name" value="' + esc(c.name) + '" maxlength="60" aria-label="Company name"></td><td><input data-f="email" type="email" value="' + esc(c.email) + '" placeholder="name@company.com" aria-label="Email"></td><td><code>' + esc(c.login) + '</code></td><td class="r">' + DT.app.contractorWorkload(c.id) + '</td><td class="r"><button class="icon-btn sm" data-remove="' + c.id + '" aria-label="Remove ' + esc(c.name) + '">' + UI.icon('trash', 15) + '</button></td></tr>').join('') +
           '</tbody></table></div>' +
           (contractors.length ? '' : '<p class="muted small">No contractors yet. Add the first one below.</p>') +
@@ -4393,7 +4402,6 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const saveSettings = async (again) => {
       await DT.app.saveSettings();
       await DT.app.reload();
-      DT.app.refreshBrand();
       if (again) rerender();
       UI.toast('Saved', 'success');
     };
@@ -4416,10 +4424,6 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
           await DT.app.saveContractor(Object.assign({}, c, patch));
           UI.toast('Contractor saved', 'success');
           return rerender();
-        }
-        if (t.id === 'sName') {
-          set.projectName = t.value.trim() || 'Rectify';
-          return saveSettings();
         }
         if (t.id === 'mStel' || t.id === 'mLta') {
           set.mailboxes[t.id === 'mStel' ? 'stel' : 'lta'] = t.value.trim();
