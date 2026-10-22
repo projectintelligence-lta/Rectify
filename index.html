@@ -946,6 +946,30 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     return u;
   };
 
+  /* Removes the given defects with their history, the emails that are only about them, the given upload
+   * records, and every photo that no remaining defect uses. */
+  S.removeDefects = (defectIds, importIds) => {
+    const gone = new Set(defectIds);
+    return run(['defects', 'events', 'photos', 'imports', 'outbox'], 'readwrite', async (tx) => {
+      const store = (name) => tx.objectStore(name);
+      const [defects, events, outbox, photoKeys] = await Promise.all([req(store('defects').getAll()), req(store('events').getAll()), req(store('outbox').getAll()), req(store('photos').getAllKeys())]);
+      const kept = new Set();
+      defects.forEach((d) => (gone.has(d.id) ? store('defects').delete(d.id) : d.photos.forEach((p) => kept.add(p.hash))));
+      events.forEach((e) => gone.has(e.defectId) && store('events').delete(e.id));
+      outbox.forEach((m) => m.defectIds.every((id) => gone.has(id)) && store('outbox').delete(m.id));
+      (importIds || []).forEach((id) => store('imports').delete(id));
+      photoKeys.forEach((hash) => {
+        if (kept.has(hash)) return;
+        store('photos').delete(hash);
+        ['thumb', 'full'].forEach((size) => {
+          const url = urlCache.get(hash + size);
+          if (url) URL.revokeObjectURL(url);
+          urlCache.delete(hash + size);
+        });
+      });
+    });
+  };
+
   /* Deletes every defect, its history, photos, imports and emails. Contractors and settings are kept. */
   S.wipeDefects = async () => {
     await run(['defects', 'events', 'photos', 'imports', 'outbox'], 'readwrite', (tx) => ['defects', 'events', 'photos', 'imports', 'outbox'].forEach((n) => tx.objectStore(n).clear()));
@@ -2606,8 +2630,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     ].join('\n');
   }
 
-  function message(to, subject, lines, defectIds) {
-    return Object.assign({ id: U.uid(), at: Date.now(), subject: '[Rectify] ' + subject, body: ['Hello ' + to.toName + ','].concat(lines, ['', 'This message was sent by Rectify.']).join('\n'), defectIds, sentAt: null }, to);
+  /* `at` is the time of the action that produced the message */
+  function createMessage(to, subject, lines, defectIds, at) {
+    return Object.assign({ id: U.uid(), at, subject: '[Rectify] ' + subject, body: ['Hello ' + to.toName + ','].concat(lines, ['', 'This message was sent by Rectify.']).join('\n'), defectIds, sentAt: null }, to);
   }
 
   /* Emails for one workflow event. `d` is the defect after the action. */
@@ -2617,42 +2642,43 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const link = ['', 'Open it in Rectify: ' + N.appLink(d.id)];
     const body = (lead, extra) => ['', lead, '', summary(d)].concat(extra || [], noteLine, link);
     const to = (kind, contractorId) => recipient(kind, ctx, contractorId);
-    const ids = [d.id];
+    const message = (recipientInfo, subject, lines) => createMessage(recipientInfo, subject, lines, [d.id], e.at);
     switch (e.action) {
       case 'assign': {
-        const out = [message(to('contractor', e.contractorId), 'Defect ' + ref + ' assigned to you, target ' + U.fmtDate(e.dueDate), body('LTA has assigned this defect to ' + to('contractor', e.contractorId).toName + '.', ['Target date: ' + U.fmtDate(e.dueDate)]), ids)];
-        if (e.previousContractorId) out.push(message(to('contractor', e.previousContractorId), 'Defect ' + ref + ' reassigned', body('LTA has reassigned this defect to another contractor. No further action is needed from you.'), ids));
+        const out = [message(to('contractor', e.contractorId), 'Defect ' + ref + ' assigned to you, target ' + U.fmtDate(e.dueDate), body('LTA has assigned this defect to ' + to('contractor', e.contractorId).toName + '.', ['Target date: ' + U.fmtDate(e.dueDate)]))];
+        if (e.previousContractorId) out.push(message(to('contractor', e.previousContractorId), 'Defect ' + ref + ' reassigned', body('LTA has reassigned this defect to another contractor. No further action is needed from you.')));
         return out;
       }
       case 'requestInfo':
-        return [message(to('lta'), e.by.name + ' needs more information on defect ' + ref, body(e.by.name + ' has asked for more information before fixing this defect.'), ids)];
+        return [message(to('lta'), e.by.name + ' needs more information on defect ' + ref, body(e.by.name + ' has asked for more information before fixing this defect.'))];
       case 'answerInfo':
-        return [message(to('contractor', d.contractorId), 'LTA answered your question on defect ' + ref, body('LTA has answered your question. The defect is back with you.', ['Target date: ' + U.fmtDate(d.dueDate)]), ids)];
+        return [message(to('contractor', d.contractorId), 'LTA answered your question on defect ' + ref, body('LTA has answered your question. The defect is back with you.', ['Target date: ' + U.fmtDate(d.dueDate)]))];
       case 'submitFix':
-        return [message(to('lta'), 'Fix submitted for defect ' + ref + ', please review', body(e.by.name + ' has submitted a fix with ' + U.plural((e.photos || []).length, 'photo') + '.'), ids)];
+        return [message(to('lta'), 'Fix submitted for defect ' + ref + ', please review', body(e.by.name + ' has submitted a fix with ' + U.plural((e.photos || []).length, 'photo') + '.'))];
       case 'approveFix':
-        return [message(to('stel'), 'Defect ' + ref + ' is ready for your acceptance', body('LTA has approved the fix and sent it to you for acceptance.'), ids)];
+        return [message(to('stel'), 'Defect ' + ref + ' is ready for your acceptance', body('LTA has approved the fix and sent it to you for acceptance.'))];
       case 'rejectFix':
-        return [message(to('contractor', d.contractorId), 'Fix not accepted for defect ' + ref + ', rework needed', body('LTA did not accept the fix. Please rework it and submit again.', ['Target date: ' + U.fmtDate(d.dueDate)]), ids)];
+        return [message(to('contractor', d.contractorId), 'Fix not accepted for defect ' + ref + ', rework needed', body('LTA did not accept the fix. Please rework it and submit again.', ['Target date: ' + U.fmtDate(d.dueDate)]))];
       case 'accept': {
-        const out = [message(to('lta'), 'Defect ' + ref + ' accepted and closed', body('STEL has accepted the fix. The defect is closed.'), ids)];
-        if (d.contractorId) out.push(message(to('contractor', d.contractorId), 'Defect ' + ref + ' accepted and closed', body('STEL has accepted your fix. The defect is closed.'), ids));
+        const out = [message(to('lta'), 'Defect ' + ref + ' accepted and closed', body('STEL has accepted the fix. The defect is closed.'))];
+        if (d.contractorId) out.push(message(to('contractor', d.contractorId), 'Defect ' + ref + ' accepted and closed', body('STEL has accepted your fix. The defect is closed.')));
         return out;
       }
       case 'returnToLta':
-        return [message(to('lta'), 'STEL returned defect ' + ref, body('STEL did not accept the fix and has returned the defect to LTA.'), ids)];
+        return [message(to('lta'), 'STEL returned defect ' + ref, body('STEL did not accept the fix and has returned the defect to LTA.'))];
       default:
         return [];
     }
   };
 
-  /* One email to LTA per upload, listing the new defects. */
-  N.forImport = (defects, fileName, note, uploader) => {
+  /* One email to LTA per upload, listing the new defects. meta = { fileName, note, uploader, at } */
+  N.forImport = (defects, meta) => {
+    const { fileName, note, uploader, at } = meta;
     if (!defects.length) return [];
     const lines = defects.slice(0, MAX_LISTED).map((d) => '• #' + d.ref + ' (S/N ' + d.sn + ') ' + U.truncate(d.description, 80));
     if (defects.length > MAX_LISTED) lines.push('… and ' + (defects.length - MAX_LISTED) + ' more.');
     const to = recipient('lta', null);
-    return [message(to, U.plural(defects.length, 'new defect') + ' to review', ['', uploader + ' has uploaded ' + fileName + ' with ' + U.plural(defects.length, 'new defect') + ' for you to review and assign:', ''].concat(lines, note ? ['', 'Note from ' + uploader + ':', note] : [], ['', 'Open them in Rectify: ' + N.appLink()]), defects.map((d) => d.id))];
+    return [createMessage(to, U.plural(defects.length, 'new defect') + ' to review', ['', uploader + ' has uploaded ' + fileName + ' with ' + U.plural(defects.length, 'new defect') + ' for you to review and assign:', ''].concat(lines, note ? ['', 'Note from ' + uploader + ':', note] : [], ['', 'Open them in Rectify: ' + N.appLink()]), defects.map((d) => d.id), at)];
   };
 
   N.mailto = (m, address) => 'mailto:' + encodeURIComponent(address) + '?subject=' + encodeURIComponent(m.subject) + '&body=' + encodeURIComponent(m.body);
@@ -2738,13 +2764,14 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
   /* ---------- performing an action ----------
    * defect = the stored record (not the derived one); input = { note, contractorId, dueDate, photos: [{hash, media}] }.
+   * ctx = { contractors, now? }: `now` (ms) dates the action; it defaults to the current time.
    * Returns { defect, event, outbox, media } ready for DT.store.saveAction. Throws Error with a readable message. */
   W.perform = (actionId, defect, input, user, ctx) => {
     const a = W.ACTIONS[actionId];
     if (!a || !W.allowed(actionId, defect, user)) throw new Error('This action is not available for this defect.');
     const note = String(input.note || '').trim();
     if (a.note === 'required' && !note) throw new Error('Please add a note.');
-    const now = Date.now();
+    const now = ctx.now || Date.now();
     const next = Object.assign({}, defect, { updatedAt: now });
     const event = { id: U.uid(), defectId: defect.id, at: now, action: actionId, fromStage: defect.stage, toStage: a.to || defect.stage, note, by: { id: user.id, name: user.name, role: user.role, contractorId: user.contractorId || null } };
     const media = new Map();
@@ -2804,6 +2831,364 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       default:
         return W.ACTIONS[e.action] ? W.ACTIONS[e.action].past : e.action;
     }
+  };
+})();
+
+</script>
+<script>/* js/sample.js */
+/* Rectify — sample defects (fictional).
+ * Eight made-up defects, one or more in every stage of the flow, so a first-time viewer can explore the app.
+ * Each defect is created as an upload by STEL and then taken through the real workflow rules
+ * (DT.workflow.perform) on past dates, so its history, emails and charts match real use.
+ * Photos are drawn in the browser and labelled SAMPLE PHOTO. */
+(function () {
+  'use strict';
+  const DT = window.DT,
+    U = DT.U,
+    D = DT.domain;
+  const SAMPLE = (DT.sample = {});
+
+  const FILE_NAME = 'Sample defects (fictional)';
+  const DAY = 864e5;
+
+  /* Contractor `A` / `B` = the first two contractor companies (the same one if there is only one).
+   * steps: [days ago, action, who, input]. Dates in `input.due` are days from today. */
+  const DEFECTS = [
+    {
+      description: 'Handrail loose at stair landing',
+      proposed: 'Re-fix handrail brackets and re-torque all fixings',
+      classification: 'Safety Related',
+      where: ['Depot', 'Block A', 'L2 / Staircase 2'],
+      officer: 'STEL Safety',
+      scene: 'handrail',
+      steps: [],
+    },
+    {
+      description: 'Ceiling stain below roof outlet',
+      proposed: 'Trace the leak, repair waterproofing and replace the stained tile',
+      classification: 'Major',
+      where: ['North Station', 'Admin Block', 'L3 / Corridor'],
+      officer: 'STEL Civil',
+      scene: 'stain',
+      steps: [],
+    },
+    {
+      description: 'Exposed cable ends in junction box',
+      proposed: 'Terminate and insulate cable ends, fit the junction box cover',
+      classification: 'Safety Related',
+      where: ['Maintenance Bay', 'Workshop 1', 'L1 / Electrical Room'],
+      officer: 'STEL M&E',
+      scene: 'cable',
+      steps: [
+        [18, 'assign', 'lta', { contractor: 'A', due: 5, note: 'Isolate the circuit before work starts.' }],
+        [10, 'submitFix', 'A', { note: 'Cable ends taped and box closed.', photo: true }],
+        [8, 'rejectFix', 'lta', { note: 'Taping is not acceptable. Use proper terminations and fit the cover plate.' }],
+      ],
+    },
+    {
+      description: 'Water ponding at roof drain',
+      proposed: 'Rework the screed falls towards the drain outlet',
+      classification: 'Major',
+      where: ['Depot', 'Block B', 'Roof / Plant Deck'],
+      officer: 'STEL Civil',
+      scene: 'ponding',
+      steps: [[16, 'assign', 'lta', { contractor: 'B', due: -3, note: 'Please check after the next heavy rain as well.' }]],
+    },
+    {
+      description: 'Door closer not working at fire exit',
+      proposed: 'Replace the door closer and test the self-closing action',
+      classification: 'Major',
+      where: ['Control Centre', 'Admin Block', 'L1 / Fire Exit 1'],
+      officer: 'STEL Safety',
+      scene: 'door',
+      steps: [
+        [15, 'assign', 'lta', { contractor: 'A', due: 7, note: '' }],
+        [6, 'requestInfo', 'A', { note: 'Which closer model should be used? The existing one is no longer made.' }],
+      ],
+    },
+    {
+      description: 'Cracked floor tile outside lift lobby',
+      proposed: 'Replace the cracked tile and re-grout',
+      classification: 'Minor',
+      where: ['North Station', 'Block A', 'L1 / Lift Lobby'],
+      officer: 'STEL Civil',
+      scene: 'tile',
+      steps: [
+        [14, 'assign', 'lta', { contractor: 'B', due: 2, note: '' }],
+        [2, 'submitFix', 'B', { note: 'Tile replaced and re-grouted. Area cleaned.', photo: true }],
+      ],
+    },
+    {
+      description: 'Paint peeling on staircase soffit',
+      proposed: 'Scrape loose paint, prime and repaint',
+      classification: 'Minor',
+      where: ['Viaduct Section 2', 'Substation 3', 'L2 / Staircase 1'],
+      officer: 'STEL Civil',
+      scene: 'paint',
+      steps: [
+        [17, 'assign', 'lta', { contractor: 'A', due: -5, note: '' }],
+        [9, 'submitFix', 'A', { note: 'Soffit scraped, primed and given two coats.', photo: true }],
+        [7, 'approveFix', 'lta', { note: 'Checked on site. Finish is acceptable.' }],
+      ],
+    },
+    {
+      description: 'Additional access ladder suggested for equipment platform',
+      proposed: 'Install a fixed ladder with a safety cage',
+      classification: 'Improvement',
+      where: ['Maintenance Bay', 'Workshop 1', 'L2 / Mezzanine'],
+      officer: 'STEL Safety',
+      scene: 'ladder',
+      steps: [
+        [19, 'assign', 'lta', { contractor: 'B', due: -8, note: '' }],
+        [12, 'submitFix', 'B', { note: 'Ladder and cage installed and load tested.', photo: true }],
+        [11, 'approveFix', 'lta', { note: '' }],
+        [10, 'accept', 'stel', { note: 'Accepted on site.' }],
+      ],
+    },
+  ];
+
+  const UPLOADED_DAYS_AGO = 21;
+  const INSPECTED_DAYS_AGO = 23;
+
+  /* ---------- photos ---------- */
+  const W = 800,
+    H = 600,
+    THUMB_W = 320,
+    THUMB_H = 240;
+  const DEFECT_RED = '#c0392b';
+
+  /* Draws a simple scene. `fixed` = the scene after the contractor's fix. */
+  function paint(ctx, scene, fixed, stamp) {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#eef1f5');
+    g.addColorStop(1, '#cdd5de');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.07)';
+    ctx.fillRect(0, H * 0.72, W, H * 0.28);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    const line = (color, width, points) => {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      points.forEach(([x, y], i) => (i ? ctx.lineTo(x * W, y * H) : ctx.moveTo(x * W, y * H)));
+      ctx.stroke();
+    };
+    const box = (color, x, y, w, h) => {
+      ctx.fillStyle = color;
+      ctx.fillRect(x * W, y * H, w * W, h * H);
+    };
+
+    switch (scene) {
+      case 'handrail':
+        for (let i = 0; i < 6; i++) {
+          const x = 0.12 + i * 0.15;
+          line('#6f7a86', 7, [[x, 0.7], [x + (!fixed && i === 3 ? 0.05 : 0), 0.3]]);
+        }
+        line('#6f7a86', 7, [[0.1, 0.3], [0.9, 0.3]]);
+        break;
+      case 'stain':
+        for (let i = 0; i < 6; i++) for (let j = 0; j < 4; j++) {
+          ctx.strokeStyle = '#c3cad2';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(W * (0.08 + i * 0.14), H * (0.08 + j * 0.15), W * 0.14, H * 0.15);
+        }
+        if (!fixed) {
+          ctx.fillStyle = 'rgba(138, 109, 59, 0.35)';
+          ctx.beginPath();
+          ctx.ellipse(W * 0.5, H * 0.3, 70, 42, 0.3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      case 'cable':
+        box('#9aa4b0', 0.3, 0.2, 0.4, 0.45);
+        box('#b8c0ca', 0.34, 0.25, 0.32, 0.35);
+        if (fixed) box('#7d8793', 0.32, 0.22, 0.36, 0.41);
+        else [0.4, 0.5, 0.6].forEach((x) => line(DEFECT_RED, 5, [[x, 0.5], [x + 0.03, 0.7]]));
+        break;
+      case 'ponding':
+        box('#9aa4b0', 0.05, 0.55, 0.9, 0.2);
+        box('#6f7a86', 0.46, 0.6, 0.08, 0.06);
+        if (!fixed) {
+          ctx.fillStyle = 'rgba(70, 130, 180, 0.45)';
+          ctx.beginPath();
+          ctx.ellipse(W * 0.32, H * 0.64, 150, 26, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      case 'door':
+        box('#b3bcc6', 0.3, 0.1, 0.4, 0.62);
+        ctx.fillStyle = '#6f7a86';
+        ctx.beginPath();
+        ctx.arc(W * 0.64, H * 0.42, 9, 0, Math.PI * 2);
+        ctx.fill();
+        line('#6f7a86', 6, [[0.32, 0.14], [0.45, 0.14]]);
+        if (!fixed) box('rgba(192, 57, 43, 0.35)', 0.3, 0.1, 0.015, 0.62);
+        break;
+      case 'tile':
+        for (let i = 0; i < 6; i++) for (let j = 0; j < 3; j++) {
+          ctx.strokeStyle = '#c3cad2';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(W * (0.1 + i * 0.13), H * (0.5 + j * 0.14), W * 0.13, H * 0.14);
+        }
+        if (!fixed) line(DEFECT_RED, 4, [[0.36, 0.52], [0.42, 0.6], [0.5, 0.74]]);
+        break;
+      case 'paint':
+        box('#d6dbe1', 0.05, 0.1, 0.9, 0.35);
+        if (!fixed) {
+          ctx.fillStyle = '#b8c0ca';
+          [[0.2, 0.2], [0.45, 0.28], [0.7, 0.18], [0.58, 0.36]].forEach(([x, y]) => {
+            ctx.beginPath();
+            ctx.ellipse(W * x, H * y, 40, 18, 0.4, 0, Math.PI * 2);
+            ctx.fill();
+          });
+        }
+        break;
+      default: /* ladder */
+        box('#9aa4b0', 0.1, 0.25, 0.5, 0.06);
+        if (fixed) {
+          line('#44525f', 6, [[0.66, 0.25], [0.66, 0.72]]);
+          line('#44525f', 6, [[0.76, 0.25], [0.76, 0.72]]);
+          for (let y = 0.3; y < 0.72; y += 0.07) line('#44525f', 4, [[0.66, y], [0.76, y]]);
+        }
+        break;
+    }
+
+    ctx.font = '600 ' + Math.round(H * 0.045) + 'px -apple-system, Helvetica, Arial, sans-serif';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.textAlign = 'left';
+    ctx.fillText('SAMPLE PHOTO', 16, H * 0.07);
+    ctx.fillStyle = '#c27400';
+    ctx.textAlign = 'right';
+    ctx.fillText(stamp, W - 16, H - 16);
+    if (fixed) {
+      ctx.fillStyle = '#34c759';
+      ctx.beginPath();
+      ctx.arc(W - 44, 44, 24, 0, Math.PI * 2);
+      ctx.fill();
+      line('#fff', 5, [[(W - 54) / W, 44 / H], [(W - 46) / W, 52 / H], [(W - 33) / W, 36 / H]]);
+    }
+  }
+
+  const toBlob = (canvas) => new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8));
+
+  async function drawPhoto(scene, fixed, at) {
+    const full = document.createElement('canvas');
+    full.width = W;
+    full.height = H;
+    paint(full.getContext('2d'), scene, fixed, U.fmtDateTime(at));
+    const thumb = document.createElement('canvas');
+    thumb.width = THUMB_W;
+    thumb.height = THUMB_H;
+    thumb.getContext('2d').drawImage(full, 0, 0, THUMB_W, THUMB_H);
+    return { full: await toBlob(full), thumb: await toBlob(thumb), w: W, h: H };
+  }
+  const photoHash = (scene, fixed, at) => U.hashBytes(new Uint8Array(0), 'rectify-sample|' + scene + '|' + (fixed ? 'fix' : 'register') + '|' + at);
+
+  /* ---------- build ---------- */
+  const isoDaysAgo = (n) => U.addDays(U.isoToday(), -n);
+  const dmy = (iso) => iso.split('-').reverse().map(Number).join('/');
+  /* 10:00 local time, `n` days ago, plus a few minutes so same-day steps keep their order */
+  const timeDaysAgo = (n, minutes) => {
+    const d = new Date();
+    d.setHours(10, minutes || 0, 0, 0);
+    return d.getTime() - n * DAY;
+  };
+
+  /* Returns everything one upload of the sample needs: { importRec, defects, events, outbox, media }.
+   * contractors: the contractor companies in order; firstRef: the reference number for the first sample defect. */
+  SAMPLE.build = async (contractors, firstRef) => {
+    if (!contractors.length) throw new Error('Add at least one contractor in Settings first.');
+    const contractorFor = { A: contractors[0], B: contractors[1] || contractors[0] };
+    const ctx = { contractors: new Map(contractors.map((c) => [c.id, c])) };
+    const actor = (who) => (who === 'lta' || who === 'stel' ? DT.auth.userById(who) : DT.auth.userById('contractor:' + contractorFor[who].id));
+
+    const uploadedAt = timeDaysAgo(UPLOADED_DAYS_AGO);
+    const inspected = isoDaysAgo(INSPECTED_DAYS_AGO);
+    const stel = DT.auth.userById('stel');
+    const by = { id: stel.id, name: stel.name, role: stel.role, contractorId: null };
+    const importRec = { id: U.uid(), at: uploadedAt, fileName: FILE_NAME, sheetName: '', note: '', by, added: DEFECTS.length, skipped: 0, photos: DEFECTS.length, sample: true };
+
+    const media = new Map();
+    const events = [];
+    const outbox = [];
+    const defects = [];
+
+    for (const [i, spec] of DEFECTS.entries()) {
+      const registerHash = photoHash(spec.scene, false, uploadedAt);
+      media.set(registerHash, await drawPhoto(spec.scene, false, uploadedAt));
+      const row = {
+        rowNum: i + 2,
+        sn: 'SAMPLE-' + (i + 1),
+        snRaw: 'SAMPLE-' + (i + 1),
+        statusRaw: 'Opened',
+        officer: spec.officer,
+        inspDates: [inspected],
+        inspRaw: dmy(inspected),
+        rectDates: [],
+        rectRaw: '',
+        closedDate: null,
+        closedRaw: '',
+        location: spec.where[0],
+        building: spec.where[1],
+        level: spec.where[2],
+        description: spec.description,
+        proposed: spec.proposed,
+        classificationRaw: spec.classification,
+        action: 'Contractor to rectify',
+        followUp: '',
+        contact: spec.officer,
+        actionParty: '',
+        rectification: '',
+        signoff: '',
+        remark: 'SAMPLE',
+        photos: [{ hash: registerHash, kind: 'before' }],
+        photoNotes: [],
+      };
+      row.fp = D.fingerprint(row);
+      let defect = Object.assign(row, {
+        id: U.uid(),
+        ref: firstRef + i,
+        importId: importRec.id,
+        stage: 'new',
+        contractorId: null,
+        dueDate: null,
+        rework: false,
+        sample: true,
+        createdAt: uploadedAt,
+        updatedAt: uploadedAt,
+      });
+      events.push({ id: U.uid(), defectId: defect.id, at: uploadedAt, action: 'import', fromStage: null, toStage: 'new', note: '', by, fileName: FILE_NAME });
+
+      let lastMessages = [];
+      for (const [stepIndex, [daysAgo, action, who, opt]] of spec.steps.entries()) {
+        const at = timeDaysAgo(daysAgo, stepIndex);
+        const input = { note: opt.note || '' };
+        if (opt.contractor) {
+          input.contractorId = contractorFor[opt.contractor].id;
+          input.dueDate = U.addDays(U.isoToday(), opt.due);
+        }
+        if (opt.photo) {
+          const hash = photoHash(spec.scene, true, at);
+          input.photos = [{ hash, media: await drawPhoto(spec.scene, true, at) }];
+        }
+        const res = DT.workflow.perform(action, defect, input, actor(who), Object.assign({ now: at }, ctx));
+        defect = res.defect;
+        events.push(res.event);
+        res.media.forEach((m, hash) => media.set(hash, m));
+        /* emails from earlier steps count as already sent; only the latest step's are waiting */
+        lastMessages.forEach((m) => (m.sentAt = m.at));
+        lastMessages = res.outbox;
+        outbox.push(...res.outbox);
+      }
+      defects.push(defect);
+    }
+
+    const announce = DT.notify.forImport(defects, { fileName: FILE_NAME, note: '', uploader: by.name, at: uploadedAt });
+    announce.forEach((m) => (m.sentAt = m.at));
+    outbox.push(...announce);
+    return { importRec, defects, events, outbox, media };
   };
 })();
 
@@ -2937,10 +3322,35 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const media = new Map();
     defects.forEach((d) => d.photos.forEach((p) => result.media.has(p.hash) && media.set(p.hash, result.media.get(p.hash))));
     importRec.photos = defects.reduce((n, d) => n + d.photos.length, 0);
-    await DT.store.saveImport(importRec, defects, events, DT.notify.forImport(defects, meta.fileName, meta.note, S.user.name), media);
+    await DT.store.saveImport(importRec, defects, events, DT.notify.forImport(defects, { fileName: meta.fileName, note: meta.note, uploader: S.user.name, at: now }), media);
     await App.reload();
     return importRec;
   };
+
+  /* ---------- sample defects ---------- */
+  App.sampleDefects = () => Array.from(S.raw.values()).filter((d) => d.sample);
+  App.addSample = async () => {
+    const firstRef = Array.from(S.raw.values()).reduce((mx, d) => Math.max(mx, d.ref), 0) + 1;
+    const s = await DT.sample.build(Array.from(S.contractors.values()), firstRef);
+    await DT.store.saveImport(s.importRec, s.defects, s.events, s.outbox, s.media);
+    await App.reload();
+  };
+  App.removeSample = async () => {
+    const importIds = S.imports.filter((i) => i.sample).map((i) => i.id);
+    await DT.store.removeDefects(App.sampleDefects().map((d) => d.id), importIds);
+    await App.reload();
+  };
+  /* A browser that opens Rectify for the first time, with no defects yet, starts with the sample.
+   * The sample is a convenience: if it cannot be created, the app still opens, empty. */
+  async function addSampleOnFirstVisit() {
+    try {
+      if (await DT.store.getKV('sampleOffered')) return;
+      if (!S.raw.size && S.contractors.size) await App.addSample();
+      await DT.store.setKV('sampleOffered', true);
+    } catch (e) {
+      console.error('Sample defects could not be created', e);
+    }
+  }
 
   /* Perform a workflow action on a defect and save it. */
   App.act = async (actionId, defectId, input) => {
@@ -3101,6 +3511,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       boot.innerHTML = '<div class="boot-err"><h2>Browser storage is unavailable</h2><p>' + esc(e.message) + ' Open the page in a normal (non-private) browser window and try again.</p></div>';
       return;
     }
+    await addSampleOnFirstVisit();
     const open = async (user) => {
       S.user = user;
       await App.reload();
@@ -3336,9 +3747,10 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const first = created.reduce((a, b) => (a < b ? a : b));
     const span = U.daysBetween(first, today);
     const step = span > 60 ? 7 : 1;
+    /* oldest first; counted back from today so the last point is always today */
     const points = [];
-    for (let d = span; d >= 0; d -= step) points.unshift(U.addDays(today, -d));
-    if (points[0] !== first && step > 1) points.unshift(first);
+    for (let d = 0; d <= span; d += step) points.unshift(U.addDays(today, -d));
+    if (points[0] !== first) points.unshift(first);
     return {
       labels: points.map(U.fmtDateShort),
       open: points.map((p) => created.filter((c, i) => c <= p && !(closed[i] && closed[i] <= p)).length),
@@ -3763,7 +4175,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     return (
       '<header class="d-head"><div class="d-nav"><button class="icon-btn" data-dprev aria-label="Previous defect">' + UI.icon('left') + '</button><span>' + (idx + 1) + ' of ' + n + '</span><button class="icon-btn" data-dnext aria-label="Next defect">' + UI.icon('right') + '</button></div><button class="icon-btn" data-dclose aria-label="Close">' + UI.icon('close') + '</button></header>' +
       '<div class="d-body"><div class="d-title"><span class="d-sn">#' + r.ref + ' · S/N ' + esc(r.sn) + '</span><h2>' + esc(r.description || '(No description)') + '</h2><div class="d-tags">' + UI.stagePill(r.stage) + UI.classTag(r.classification) +
-      (r.overdue ? '<span class="tag" style="--c:#ff9f0a">Overdue ' + r.daysOverdue + ' d</span>' : '') + (r.open && r.rework ? '<span class="tag" style="--c:#ff3b30">Rework</span>' : '') + '</div></div>' +
+      (r.overdue ? '<span class="tag" style="--c:#ff9f0a">Overdue ' + r.daysOverdue + ' d</span>' : '') + (r.open && r.rework ? '<span class="tag" style="--c:#ff3b30">Rework</span>' : '') + (r.sample ? '<span class="tag" style="--c:#8e8e93">Sample</span>' : '') + '</div></div>' +
       '<section class="act-card" style="--c:' + stage.color + '"><div class="act-now"><b>' + esc(stage.hint) + '</b>' +
       (waitingOn ? '<span>Waiting on <strong>' + esc(waitingOn) + '</strong>' + (r.dueDate && r.open ? ' · target ' + esc(U.fmtDate(r.dueDate)) : '') + '</span>' : '<span>Closed on ' + esc(U.fmtDate(r.closedOn)) + '</span>') + '</div>' +
       (actions.length
@@ -4247,7 +4659,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       (list.length
         ? '<ol class="timeline">' +
           list.map((i, n) =>
-            '<li class="tl-item" style="--n:' + Math.min(n, 8) + '"><i class="tl-dot"></i><div class="tl-card"><div class="tl-top"><div><h3>' + esc(i.fileName) + (n === 0 ? '<span class="tag" style="--c:#0071e3">Latest</span>' : '') + '</h3>' +
+            '<li class="tl-item" style="--n:' + Math.min(n, 8) + '"><i class="tl-dot"></i><div class="tl-card"><div class="tl-top"><div><h3>' + esc(i.fileName) + (n === 0 ? '<span class="tag" style="--c:#0071e3">Latest</span>' : '') + (i.sample ? '<span class="tag" style="--c:#8e8e93">Sample</span>' : '') + '</h3>' +
             '<p>' + esc(U.fmtDateTime(i.at)) + ' · ' + esc(i.by.name) + (i.sheetName ? ' · <span class="muted">sheet ' + esc(i.sheetName) + '</span>' : '') + '</p>' + (i.note ? '<p class="tl-note">“' + esc(i.note) + '”</p>' : '') + '</div>' +
             (i.added ? '<div class="tl-act"><button class="btn sm" data-import="' + i.id + '">View its defects</button></div>' : '') + '</div>' +
             '<div class="tl-stats"><div><b>' + i.added + '</b><span>New defects</span></div><div><b>' + i.skipped + '</b><span>Already in Rectify</span></div><div><b>' + i.photos + '</b><span>Photos</span></div></div></div></li>'
@@ -4357,6 +4769,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const usage = await DT.store.usage();
     const contractors = Array.from(S.contractors.values());
     const classTargets = D.CLASSES.map((c) => c.id).filter((x) => x !== 'Unclassified');
+    const nSample = DT.app.sampleDefects().length;
 
     root.innerHTML =
       '<div class="page-head"><div><h1>Settings</h1><p class="lede">Master control for contractors, email addresses and how the register is read.</p></div></div>' +
@@ -4392,7 +4805,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       sec(
         'Data and privacy',
         'Where your data lives right now.',
-        '<p class="muted">This copy keeps defects, photos and history <b>inside this browser only</b>. Nothing is sent to a server. ' + (usage ? 'Using ' + U.fmtBytes(usage.used) + ' of ' + U.fmtBytes(usage.quota) + '.' : '') + '</p><div class="btn-row"><button class="btn danger" id="wipe">Delete all defects</button></div>'
+        '<p class="muted">This copy keeps defects, photos and history <b>inside this browser only</b>. Nothing is sent to a server. ' + (usage ? 'Using ' + U.fmtBytes(usage.used) + ' of ' + U.fmtBytes(usage.quota) + '.' : '') + '</p>' +
+          '<p class="muted small">' + (nSample ? 'The ' + U.plural(nSample, 'sample defect') + ' marked “Sample” are made up, to show how the app works. Removing them leaves every other defect as it is.' : 'Sample defects are 8 made-up defects, one in every stage of the flow, for showing how the app works.') + '</p>' +
+          '<div class="btn-row">' + (nSample ? '<button class="btn" id="rmSample">Remove sample defects</button>' : '<button class="btn" id="addSample">Add sample defects</button>') + '<button class="btn danger" id="wipe">Delete all defects</button></div>'
       ) +
       sec('Keyboard shortcuts', '', '<div class="keys"><span><kbd>/</kbd> Search defects</span><span><kbd>U</kbd> Upload</span><span><kbd>Arrow keys</kbd> Previous / next defect</span><span><kbd>Esc</kbd> Close</span><span><kbd>Shift</kbd>+click Add a sort column</span></div>') +
       '</div>';
@@ -4474,6 +4889,18 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         if (e.target.closest('#addClass')) {
           set.classMap['new wording ' + Object.keys(set.classMap).length] = 'Minor';
           return saveSettings(true);
+        }
+        if (e.target.closest('#rmSample') && (await UI.confirm({ title: 'Remove the sample defects?', message: 'The ' + U.plural(nSample, 'sample defect') + ', their photos, history and emails are removed. Every other defect stays as it is.', confirmLabel: 'Remove', danger: true }))) {
+          await DT.app.removeSample();
+          rerender();
+          UI.toast('Sample defects removed');
+          return;
+        }
+        if (e.target.closest('#addSample')) {
+          await DT.app.addSample();
+          rerender();
+          UI.toast(U.plural(DT.app.sampleDefects().length, 'sample defect') + ' added', 'success');
+          return;
         }
         if (e.target.closest('#wipe') && (await UI.confirm({ title: 'Delete all defects?', message: 'Every defect, photo, upload record and email stored in this browser is permanently removed. Contractors and settings are kept. This cannot be undone.', confirmLabel: 'Delete everything', danger: true }))) {
           await DT.store.wipeDefects();
