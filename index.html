@@ -739,10 +739,17 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   /* Each register upload is either Civil or E&M; every defect keeps the discipline of its upload.
    * The LTA account of that discipline reviews it. */
   D.DISCIPLINES = [
-    { id: 'civil', label: 'Civil', color: '#a2845e' },
-    { id: 'em', label: 'E&M', color: '#0e7c86' },
+    { id: 'civil', label: 'Civil', color: '#a2845e', prefix: 'C' },
+    { id: 'em', label: 'E&M', color: '#0e7c86', prefix: 'E' },
   ];
   D.disciplineById = Object.fromEntries(D.DISCIPLINES.map((d) => [d.id, d]));
+
+  /* Rectify reference: numbered separately per discipline and shown with its prefix (C1, C2 … / E1, E2 …).
+   * `ref` stores the number; refLabel() is how it is shown everywhere. */
+  D.refLabel = (d) => D.disciplineById[d.discipline].prefix + d.ref;
+  D.nextRef = (defects, discipline) => defects.filter((d) => d.discipline === discipline).reduce((mx, d) => Math.max(mx, d.ref), 0) + 1;
+  /* sort key: Civil references first, then E&M, each in number order */
+  D.refOrder = (d) => D.DISCIPLINES.findIndex((x) => x.id === d.discipline) * 1e6 + d.ref;
 
   D.APP_NAME = 'Rectify';
 
@@ -790,6 +797,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const overdue = !!rec.dueDate && D.CONTRACTOR_STAGES.includes(rec.stage) && rec.dueDate < today;
     return Object.assign({}, rec, {
       disciplineLabel: D.disciplineById[rec.discipline].label,
+      refLabel: D.refLabel(rec),
       classification: cls.value,
       classSuspect: cls.suspect,
       closed,
@@ -1906,7 +1914,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
   /* Table and export columns. `text` = plain text for export & search; `sort` = comparable value. */
   E.COLUMNS = [
-    { id: 'ref', label: 'Ref', def: true, text: (r) => '#' + r.ref, sort: (r) => r.ref, num: true },
+    { id: 'ref', label: 'Ref', def: true, text: (r) => r.refLabel, sort: D.refOrder, num: true },
     { id: 'discipline', label: 'Discipline', def: true, text: (r) => r.disciplineLabel, sort: (r) => r.discipline },
     { id: 'sn', label: 'S/N', def: true, text: (r) => r.sn, sort: (r) => r.sn, nat: true },
     { id: 'stage', label: 'Stage', def: true, text: (r) => D.stageById[r.stage].label, sort: stageIdx },
@@ -1953,7 +1961,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     { h: 'Defect Rectification (by LTA)', w: 40, v: (r) => r.fixNote || '' },
     { h: 'Sign-Off by STEL', w: 26, v: (r) => (r.closed ? 'Accepted by STEL on ' + U.fmtDate(r.closedOn) : '') },
     { h: 'Remark', w: 14, v: (r) => r.remark },
-    { h: 'Rectify ref', w: 10, v: (r) => '#' + r.ref },
+    { h: 'Rectify ref', w: 10, v: (r) => r.refLabel },
     { h: 'Discipline', w: 10, v: (r) => r.disciplineLabel },
     { h: 'Stage', w: 24, v: (r) => D.stageById[r.stage].label },
     { h: 'Waiting on', w: 16, v: ownerLabel },
@@ -2034,14 +2042,14 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       '<div><h2>By classification</h2><table class="pr-mini">' + D.CLASSES.map((c) => bar(c.id, s.byClass[c.id] || 0, c.color)).join('') + '</table></div></div>' : '') +
       '<h2>Defect list (' + rows.length + ')</h2><table class="pr-table"><thead><tr><th>Ref</th><th>Discipline</th><th>S/N</th><th>Stage</th><th>Class</th><th>Location · Building · Level</th><th>Description</th><th>Contractor</th><th>Target</th>' + (insights ? '<th>Age</th>' : '') + '</tr></thead><tbody>' +
       rows.map((r) =>
-        '<tr><td>#' + r.ref + '</td><td>' + esc(r.disciplineLabel) + '</td><td>' + esc(r.sn) + '</td><td>' + esc(D.stageById[r.stage].short) + (r.overdue ? '<br><em>overdue</em>' : '') + '</td><td>' + esc(r.classification) + '</td><td>' + esc([r.location, r.building, r.level].filter(Boolean).join(' · ')) + '</td><td>' + esc(r.description) + '</td><td>' + esc(r.contractorName) + '</td><td>' + esc(U.fmtDate(r.dueDate)) + '</td>' + (insights ? '<td>' + r.ageDays + ' d</td>' : '') + '</tr>'
+        '<tr><td>' + esc(r.refLabel) + '</td><td>' + esc(r.disciplineLabel) + '</td><td>' + esc(r.sn) + '</td><td>' + esc(D.stageById[r.stage].short) + (r.overdue ? '<br><em>overdue</em>' : '') + '</td><td>' + esc(r.classification) + '</td><td>' + esc([r.location, r.building, r.level].filter(Boolean).join(' · ')) + '</td><td>' + esc(r.description) + '</td><td>' + esc(r.contractorName) + '</td><td>' + esc(U.fmtDate(r.dueDate)) + '</td>' + (insights ? '<td>' + r.ageDays + ' d</td>' : '') + '</tr>'
       ).join('') + '</tbody></table></section>';
 
     if (opts.photos) {
       html += rows.map((r) => {
         const fig = (fix) => r.photos.filter((p) => (p.kind === 'fix') === fix).slice(0, 6).map((p) => '<figure><img data-hash="' + p.hash + '" alt=""></figure>').join('');
         const f = (l, v) => (v ? '<dt>' + esc(l) + '</dt><dd>' + esc(v).replace(/\n/g, '<br>') + '</dd>' : '');
-        return '<section class="pr-page pr-detail"><h2>#' + r.ref + ' · ' + esc(r.disciplineLabel) + ' · S/N ' + esc(r.sn) + ' · ' + esc(D.stageById[r.stage].label) + ' · ' + esc(r.classification) + '</h2><dl>' +
+        return '<section class="pr-page pr-detail"><h2>' + esc(r.refLabel) + ' · ' + esc(r.disciplineLabel) + ' · S/N ' + esc(r.sn) + ' · ' + esc(D.stageById[r.stage].label) + ' · ' + esc(r.classification) + '</h2><dl>' +
           f('Location', [r.location, r.building, r.level].filter(Boolean).join(' · ')) + f('Description', r.description) + f('Proposed rectification', r.proposed) +
           f('Inspection', U.fmtDateList(r.inspDates) || r.inspRaw) + f('Contractor', r.contractorName) + f('Target date', U.fmtDate(r.dueDate)) + f('Contractor’s fix note', r.fixNote) +
           f('Accepted by STEL', U.fmtDate(r.closedOn)) + f('Remark', r.remark) +
@@ -2564,7 +2572,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
   const hay = (r) =>
     r._hay ||
-    (r._hay = ['#' + r.ref, r.disciplineLabel, r.sn, r.description, r.location, r.building, r.level, r.officer, r.action, r.proposed, r.contact, r.contractorName, r.remark, r.followUp, r.classificationRaw, r.fixNote]
+    (r._hay = [r.refLabel, r.disciplineLabel, r.sn, r.description, r.location, r.building, r.level, r.officer, r.action, r.proposed, r.contact, r.contractorName, r.remark, r.followUp, r.classificationRaw, r.fixNote]
       .join(' \n ')
       .toLowerCase());
 
@@ -2661,7 +2669,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
   function summary(d) {
     return [
-      'Defect #' + d.ref + ' (S/N ' + d.sn + ')',
+      'Defect ' + D.refLabel(d) + ' (S/N ' + d.sn + ')',
       d.description,
       'Location: ' + ([d.location, d.building, d.level].filter(Boolean).join(' · ') || 'not given'),
       'Discipline: ' + D.disciplineById[d.discipline].label,
@@ -2676,7 +2684,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
   /* Emails for one workflow event. `d` is the defect after the action. */
   N.forEvent = (e, d, ctx) => {
-    const ref = '#' + d.ref;
+    const ref = D.refLabel(d);
     const noteLine = e.note ? ['', 'Note from ' + e.by.name + ':', e.note] : [];
     const link = ['', 'Open it in Rectify: ' + N.appLink(d.id)];
     const body = (lead, extra) => ['', lead, '', summary(d)].concat(extra || [], noteLine, link);
@@ -2714,7 +2722,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   N.forImport = (defects, meta) => {
     const { fileName, note, uploader, at, discipline } = meta;
     if (!defects.length) return [];
-    const lines = defects.slice(0, MAX_LISTED).map((d) => '• #' + d.ref + ' (S/N ' + d.sn + ') ' + U.truncate(d.description, 80));
+    const lines = defects.slice(0, MAX_LISTED).map((d) => '• ' + D.refLabel(d) + ' (S/N ' + d.sn + ') ' + U.truncate(d.description, 80));
     if (defects.length > MAX_LISTED) lines.push('… and ' + (defects.length - MAX_LISTED) + ' more.');
     const to = recipient('lta', null, null, discipline);
     return [createMessage(to, U.plural(defects.length, 'new ' + D.disciplineById[discipline].label + ' defect') + ' to review', ['', uploader + ' has uploaded ' + fileName + ' with ' + U.plural(defects.length, 'new defect') + ' for you to review and assign:', ''].concat(lines, note ? ['', 'Note from ' + uploader + ':', note] : [], ['', 'Open them in Rectify: ' + N.appLink()]), defects.map((d) => d.id), at)];
@@ -3152,9 +3160,11 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   };
 
   /* Returns everything the sample needs: { imports (one per discipline), defects, events, outbox, media }.
-   * contractors: the contractor companies in order; firstRef: the reference number for the first sample defect. */
-  SAMPLE.build = async (contractors, firstRef) => {
+   * contractors: the contractor companies in order; existing: the defects already stored, so the sample's
+   * references continue each discipline's numbering. */
+  SAMPLE.build = async (contractors, existing) => {
     if (!contractors.length) throw new Error('Add at least one contractor in Settings first.');
+    const nextRef = Object.fromEntries(D.DISCIPLINES.map((dc) => [dc.id, D.nextRef(existing, dc.id)]));
     const contractorFor = { A: contractors[0], B: contractors[1] || contractors[0] };
     const ctx = { contractors: new Map(contractors.map((c) => [c.id, c])) };
     const actor = (who, discipline) => {
@@ -3212,7 +3222,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       row.fp = D.fingerprint(row);
       let defect = Object.assign(row, {
         id: U.uid(),
-        ref: firstRef + i,
+        ref: nextRef[spec.discipline]++,
         importId: importFor(spec.discipline).id,
         discipline: spec.discipline,
         stage: 'new',
@@ -3395,7 +3405,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const now = Date.now();
     const by = { id: S.user.id, name: S.user.name, role: S.user.role, contractorId: null };
     const importRec = { id: U.uid(), at: now, discipline: meta.discipline, fileName: meta.fileName, sheetName: result.sheetName, note: meta.note || '', by, added: rows.length, skipped: result.records.length - rows.length, photos: 0 };
-    let ref = existing.reduce((mx, d) => Math.max(mx, d.ref), 0);
+    let ref = D.nextRef(existing, meta.discipline) - 1;
     const defects = rows.map((row) =>
       Object.assign({}, row, {
         id: U.uid(),
@@ -3422,8 +3432,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   /* ---------- sample defects ---------- */
   App.sampleDefects = () => Array.from(S.raw.values()).filter((d) => d.sample);
   App.addSample = async () => {
-    const firstRef = Array.from(S.raw.values()).reduce((mx, d) => Math.max(mx, d.ref), 0) + 1;
-    const s = await DT.sample.build(Array.from(S.contractors.values()), firstRef);
+    const s = await DT.sample.build(Array.from(S.contractors.values()), Array.from(S.raw.values()));
     await DT.store.saveImports(s.imports, s.defects, s.events, s.outbox, s.media);
     await App.reload();
   };
@@ -3779,7 +3788,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   /* ---------- queue ---------- */
   function queueItems(all) {
     const items = S.user.role === 'admin' ? all.filter((r) => r.open && (r.overdue || r.classification === 'Safety Related')) : all.filter((r) => W.isMine(r, S.user));
-    items.sort((a, b) => b.overdue - a.overdue || b.daysOverdue - a.daysOverdue || (a.dueDate || '9999').localeCompare(b.dueDate || '9999') || b.ageDays - a.ageDays || a.ref - b.ref);
+    items.sort((a, b) => b.overdue - a.overdue || b.daysOverdue - a.daysOverdue || (a.dueDate || '9999').localeCompare(b.dueDate || '9999') || b.ageDays - a.ageDays || D.refOrder(a) - D.refOrder(b));
     return { list: items.slice(0, QUEUE_LIMIT), total: items.length };
   }
   function paintQueue(box, q) {
@@ -3789,7 +3798,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     }
     box.innerHTML =
       '<ul class="attn">' +
-      q.list.map((r) => '<li><button data-id="' + r.id + '"><span class="attn-sn">#' + r.ref + '</span><span class="attn-main"><b>' + esc(U.truncate(r.description, 70)) + '</b><span>' + esc(D.stageById[r.stage].label) + ' · ' + esc([r.location, r.building].filter(Boolean).join(' · ')) + (r.contractorName && S.user.role !== 'contractor' ? ' · ' + esc(r.contractorName) : '') + '</span></span><span class="attn-tags">' + (DT.app.seesBothDisciplines() ? UI.disciplineTag(r.discipline) : '') + (r.classification === 'Safety Related' ? UI.classTag('Safety Related') : '') + (r.overdue ? '<span class="tag" style="--c:#ff9f0a">Overdue ' + r.daysOverdue + ' d</span>' : '') + (r.open && r.rework ? '<span class="tag" style="--c:#ff3b30">Rework</span>' : '') + '</span></button></li>').join('') +
+      q.list.map((r) => '<li><button data-id="' + r.id + '"><span class="attn-sn">' + esc(r.refLabel) + '</span><span class="attn-main"><b>' + esc(U.truncate(r.description, 70)) + '</b><span>' + esc(D.stageById[r.stage].label) + ' · ' + esc([r.location, r.building].filter(Boolean).join(' · ')) + (r.contractorName && S.user.role !== 'contractor' ? ' · ' + esc(r.contractorName) : '') + '</span></span><span class="attn-tags">' + (DT.app.seesBothDisciplines() ? UI.disciplineTag(r.discipline) : '') + (r.classification === 'Safety Related' ? UI.classTag('Safety Related') : '') + (r.overdue ? '<span class="tag" style="--c:#ff9f0a">Overdue ' + r.daysOverdue + ' d</span>' : '') + (r.open && r.rework ? '<span class="tag" style="--c:#ff3b30">Rework</span>' : '') + '</span></button></li>').join('') +
       '</ul>' +
       (q.total > q.list.length || S.user.role !== 'admin' ? '<button class="link" id="qAll">See all ' + q.total + ' ' + UI.icon('right', 14) + '</button>' : '');
     box.addEventListener('click', (e) => {
@@ -3846,7 +3855,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       return;
     }
     DT.charts.hbar(box, {
-      items: jobs.slice(0, 8).map((r) => ({ label: '#' + r.ref + ' · ' + U.fmtDateShort(r.dueDate), value: r.overdue ? r.daysOverdue : U.daysBetween(U.isoToday(), r.dueDate), color: r.overdue ? '#ff3b30' : PALETTE[0], id: r.id })),
+      items: jobs.slice(0, 8).map((r) => ({ label: r.refLabel + ' · ' + U.fmtDateShort(r.dueDate), value: r.overdue ? r.daysOverdue : U.daysBetween(U.isoToday(), r.dueDate), color: r.overdue ? '#ff3b30' : PALETTE[0], id: r.id })),
       onClick: (it) => DT.views.defects.openDefect(it.id),
       unit: 'days (overdue in red)',
     });
@@ -3939,7 +3948,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         else r = x < y ? -1 : x > y ? 1 : 0;
         if (r) return r * k.dir;
       }
-      return a.ref - b.ref;
+      return D.refOrder(a) - D.refOrder(b);
     });
   }
   const current = () => sorted(F.apply(DT.app.scoped(), S.filters, S.user));
@@ -4064,7 +4073,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       case 'discipline':
         return UI.disciplineTag(r.discipline);
       case 'ref':
-        return '<b class="sn">#' + r.ref + '</b>';
+        return '<b class="sn">' + esc(r.refLabel) + '</b>';
       case 'sn':
         return esc(r.sn) + (r.snIssue === 'duplicate' ? '<span class="dup" title="Duplicate S/N in the register, renumbered">dup</span>' : '');
       case 'stage':
@@ -4161,7 +4170,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
           '<section class="lane" style="--c:' + s.color + '"><header><i></i><b>' + esc(s.label) + '</b><em>' + items.length + '</em></header><div class="lane-body">' +
           (items
             .slice(0, LIMIT)
-            .map((r, n) => '<button class="bcard' + (W.isMine(r, S.user) ? ' mine' : '') + '" data-id="' + r.id + '" style="--n:' + Math.min(n, 10) + '"><span class="bc-top"><b>#' + r.ref + '</b><span class="bc-tags">' + UI.disciplineTag(r.discipline) + UI.classTag(r.classification) + '</span></span><span class="bc-desc">' + esc(U.truncate(r.description, 90)) + '</span><span class="bc-meta">' + esc([r.location, r.building].filter(Boolean).join(' · ')) + '</span><span class="bc-foot"><span>' + esc(r.contractorName || 'Not assigned') + '</span>' + flagTags(r) + (!r.overdue && r.dueDate && r.open ? '<span class="muted">Due ' + esc(U.fmtDateShort(r.dueDate)) + '</span>' : '') + '</span></button>')
+            .map((r, n) => '<button class="bcard' + (W.isMine(r, S.user) ? ' mine' : '') + '" data-id="' + r.id + '" style="--n:' + Math.min(n, 10) + '"><span class="bc-top"><b>' + esc(r.refLabel) + '</b><span class="bc-tags">' + UI.disciplineTag(r.discipline) + UI.classTag(r.classification) + '</span></span><span class="bc-desc">' + esc(U.truncate(r.description, 90)) + '</span><span class="bc-meta">' + esc([r.location, r.building].filter(Boolean).join(' · ')) + '</span><span class="bc-foot"><span>' + esc(r.contractorName || 'Not assigned') + '</span>' + flagTags(r) + (!r.overdue && r.dueDate && r.open ? '<span class="muted">Due ' + esc(U.fmtDateShort(r.dueDate)) + '</span>' : '') + '</span></button>')
             .join('') || '<p class="lane-empty">Nothing here</p>') +
           (items.length > LIMIT ? '<p class="lane-empty">+' + (items.length - LIMIT) + ' more. Use filters to narrow down.</p>' : '') +
           '</div></section>'
@@ -4275,7 +4284,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         if (ph) {
           const photos = W.visiblePhotos(r, S.user);
           const start = photos.findIndex((p) => p.hash === ph.dataset.photo);
-          UI.lightbox(photos.map((p) => ({ hash: p.hash, label: D.photoLabel(p.kind), sub: '#' + r.ref + ' · ' + (r.location || '') })), Math.max(0, start));
+          UI.lightbox(photos.map((p) => ({ hash: p.hash, label: D.photoLabel(p.kind), sub: r.refLabel + ' · ' + (r.location || '') })), Math.max(0, start));
           return;
         }
         const act = e.target.closest('[data-action]');
@@ -4300,7 +4309,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const waitingOn = stage.owner === 'contractor' ? r.contractorName : stage.owner ? stage.owner.toUpperCase() : '';
     return (
       '<header class="d-head"><div class="d-nav"><button class="icon-btn" data-dprev aria-label="Previous defect">' + UI.icon('left') + '</button><span>' + (idx + 1) + ' of ' + n + '</span><button class="icon-btn" data-dnext aria-label="Next defect">' + UI.icon('right') + '</button></div><button class="icon-btn" data-dclose aria-label="Close">' + UI.icon('close') + '</button></header>' +
-      '<div class="d-body"><div class="d-title"><span class="d-sn">#' + r.ref + ' · S/N ' + esc(r.sn) + '</span><h2>' + esc(r.description || '(No description)') + '</h2><div class="d-tags">' + UI.stagePill(r.stage) + UI.disciplineTag(r.discipline) + UI.classTag(r.classification) +
+      '<div class="d-body"><div class="d-title"><span class="d-sn">' + esc(r.refLabel) + ' · S/N ' + esc(r.sn) + '</span><h2>' + esc(r.description || '(No description)') + '</h2><div class="d-tags">' + UI.stagePill(r.stage) + UI.disciplineTag(r.discipline) + UI.classTag(r.classification) +
       (r.overdue ? '<span class="tag" style="--c:#ff9f0a">Overdue ' + r.daysOverdue + ' d</span>' : '') + (r.open && r.rework ? '<span class="tag" style="--c:#ff3b30">Rework</span>' : '') + (r.sample ? '<span class="tag" style="--c:#8e8e93">Sample</span>' : '') + '</div></div>' +
       '<section class="act-card" style="--c:' + stage.color + '"><div class="act-now"><b>' + esc(stage.hint) + '</b>' +
       (waitingOn ? '<span>Waiting on <strong>' + esc(waitingOn) + '</strong>' + (r.dueDate && r.open ? ' · target ' + esc(U.fmtDate(r.dueDate)) : '') + '</span>' : '<span>Closed on ' + esc(U.fmtDate(r.closedOn)) + '</span>') + '</div>' +
@@ -4392,7 +4401,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const m = UI.modal({
       title: a.label(r),
       width: 520,
-      body: '<p class="muted small act-ref">#' + r.ref + ' · ' + esc(U.truncate(r.description, 90)) + '</p>' + body,
+      body: '<p class="muted small act-ref">' + esc(r.refLabel) + ' · ' + esc(U.truncate(r.description, 90)) + '</p>' + body,
       footer: '<button class="btn" data-close>Cancel</button><button class="btn ' + (a.tone || 'primary') + '" id="aGo">' + esc(a.label(r)) + '</button>',
     });
     if (a.photos) {
@@ -4740,9 +4749,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       box.innerHTML =
         (unsure.length
           ? '<div class="confirm-box"><h4>Please confirm ' + unsure.length + ' row' + (unsure.length > 1 ? 's' : '') + '</h4><p class="muted small">These rows look like a defect already in Rectify, but something does not line up. Choose “New defect” to add a row as a separate defect.</p>' +
-            unsure.map((p, i) => '<div class="pair"><div><span class="muted small">' + esc(p.reason) + '</span><div class="pair-cols"><div><em>In Rectify (#' + p.existing.ref + ')</em>' + line(p.existing) + '</div><div><em>This file</em>' + line(p.row) + '</div></div></div><div class="pair-seg" data-i="' + i + '"></div></div>').join('') + '</div>'
+            unsure.map((p, i) => '<div class="pair"><div><span class="muted small">' + esc(p.reason) + '</span><div class="pair-cols"><div><em>In Rectify (' + esc(D.refLabel(p.existing)) + ')</em>' + line(p.existing) + '</div><div><em>This file</em>' + line(p.row) + '</div></div></div><div class="pair-seg" data-i="' + i + '"></div></div>').join('') + '</div>'
           : '') +
-        (sure.length ? '<details class="chg"' + (unsure.length ? '' : ' open') + '><summary>Already in Rectify, left unchanged<em>' + sure.length + '</em>' + UI.icon('down', 14) + '</summary><ul class="dlist">' + sure.map((p) => '<li>' + line(p.row) + '<span class="muted small">#' + p.existing.ref + ' · ' + esc(D.stageById[p.existing.stage].label) + '</span></li>').join('') + '</ul></details>' : '');
+        (sure.length ? '<details class="chg"' + (unsure.length ? '' : ' open') + '><summary>Already in Rectify, left unchanged<em>' + sure.length + '</em>' + UI.icon('down', 14) + '</summary><ul class="dlist">' + sure.map((p) => '<li>' + line(p.row) + '<span class="muted small">' + esc(D.refLabel(p.existing)) + ' · ' + esc(D.stageById[p.existing.stage].label) + '</span></li>').join('') + '</ul></details>' : '');
       U.$$('.pair-seg', box).forEach((el) => {
         const p = unsure[+el.dataset.i];
         UI.segmented(el, {
