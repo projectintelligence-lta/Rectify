@@ -745,11 +745,13 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   D.disciplineById = Object.fromEntries(D.DISCIPLINES.map((d) => [d.id, d]));
 
   /* Rectify reference: numbered separately per discipline and shown with its prefix (C1, C2 … / E1, E2 …).
-   * `ref` stores the number; refLabel() is how it is shown everywhere. */
-  D.refLabel = (d) => D.disciplineById[d.discipline].prefix + d.ref;
-  D.nextRef = (defects, discipline) => defects.filter((d) => d.discipline === discipline).reduce((mx, d) => Math.max(mx, d.ref), 0) + 1;
-  /* sort key: Civil references first, then E&M, each in number order */
-  D.refOrder = (d) => D.DISCIPLINES.findIndex((x) => x.id === d.discipline) * 1e6 + d.ref;
+   * Sample defects have their own numbering, shown as S-C1 … / S-E1 …, so real defects always start at 1
+   * and never depend on the sample. `ref` stores the number; refLabel() is how it is shown everywhere.
+   * A reference never changes once given. */
+  D.refLabel = (d) => (d.sample ? 'S-' : '') + D.disciplineById[d.discipline].prefix + d.ref;
+  D.nextRef = (defects, discipline, sample) => defects.filter((d) => d.discipline === discipline && !!d.sample === !!sample).reduce((mx, d) => Math.max(mx, d.ref), 0) + 1;
+  /* sort key: Civil first, then E&M; within each, real defects in number order, then the sample */
+  D.refOrder = (d) => D.DISCIPLINES.findIndex((x) => x.id === d.discipline) * 1e6 + (d.sample ? 5e5 : 0) + d.ref;
 
   D.APP_NAME = 'Rectify';
 
@@ -868,9 +870,11 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   'use strict';
   const DT = window.DT;
   const S = (DT.store = {});
-  const DBN = 'rectify-v3';
-  /* Databases from earlier builds. Their contents are not carried over: v2 defects had no Civil / E&M discipline. */
-  const RETIRED_DBS = ['defect-tracker-v1', 'rectify-v1', 'rectify-v2'];
+  const DBN = 'rectify-v5';
+  /* Databases from earlier builds. Their contents are not carried over: v2 defects had no Civil / E&M discipline,
+   * v3 defects were numbered in one shared sequence instead of separately per discipline (C1… / E1…),
+   * and in v4 the sample took the first numbers of each discipline instead of its own (S-C1… / S-E1…). */
+  const RETIRED_DBS = ['defect-tracker-v1', 'rectify-v1', 'rectify-v2', 'rectify-v3', 'rectify-v4'];
   let dbp = null;
 
   function open() {
@@ -3164,7 +3168,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
    * references continue each discipline's numbering. */
   SAMPLE.build = async (contractors, existing) => {
     if (!contractors.length) throw new Error('Add at least one contractor in Settings first.');
-    const nextRef = Object.fromEntries(D.DISCIPLINES.map((dc) => [dc.id, D.nextRef(existing, dc.id)]));
+    const nextRef = Object.fromEntries(D.DISCIPLINES.map((dc) => [dc.id, D.nextRef(existing, dc.id, true)]));
     const contractorFor = { A: contractors[0], B: contractors[1] || contractors[0] };
     const ctx = { contractors: new Map(contractors.map((c) => [c.id, c])) };
     const actor = (who, discipline) => {
@@ -3390,9 +3394,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   };
   App.findDefect = (id) => S.all.find((d) => d.id === id) || null;
 
-  /* Rows of an upload are only ever matched against defects of the same discipline,
+  /* Rows of an upload are only ever matched against real (not sample) defects of the same discipline,
    * so S/N 1 of the Civil register and S/N 1 of the E&M register stay separate defects. */
-  App.matchUpload = (records, discipline) => DT.match.run(Array.from(S.raw.values()).filter((d) => d.discipline === discipline), records);
+  App.matchUpload = (records, discipline) => DT.match.run(Array.from(S.raw.values()).filter((d) => d.discipline === discipline && !d.sample), records);
 
   /* Save the new rows of an uploaded register as defects with the LTA of its discipline.
    * meta = { fileName, note, discipline, decisions }; decisions: Map row S/N → 'new' for doubtful
@@ -3405,7 +3409,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const now = Date.now();
     const by = { id: S.user.id, name: S.user.name, role: S.user.role, contractorId: null };
     const importRec = { id: U.uid(), at: now, discipline: meta.discipline, fileName: meta.fileName, sheetName: result.sheetName, note: meta.note || '', by, added: rows.length, skipped: result.records.length - rows.length, photos: 0 };
-    let ref = D.nextRef(existing, meta.discipline) - 1;
+    let ref = D.nextRef(existing, meta.discipline, false) - 1;
     const defects = rows.map((row) =>
       Object.assign({}, row, {
         id: U.uid(),
