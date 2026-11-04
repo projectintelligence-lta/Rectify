@@ -1901,7 +1901,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     { id: 'description', label: 'Description', def: true, text: (r) => r.description, sort: (r) => D.norm(r.description) },
     { id: 'contractor', label: 'Contractor', def: true, text: (r) => r.contractorName, sort: (r) => D.norm(r.contractorName) },
     { id: 'due', label: 'Target date', def: true, text: (r) => U.fmtDate(r.dueDate), sort: (r) => r.dueDate || '9999' },
-    { id: 'age', label: 'Age', def: true, text: (r) => r.ageDays + ' d', sort: (r) => r.ageDays, num: true },
+    { id: 'age', label: 'Age', def: true, insight: true, text: (r) => r.ageDays + ' d', sort: (r) => r.ageDays, num: true },
     { id: 'photos', label: 'Photos', def: true, text: (r) => r.nRegister + ' register / ' + r.nFix + ' fix', sort: (r) => r.nRegister + r.nFix, num: true },
     { id: 'owner', label: 'Waiting on', def: false, text: ownerLabel, sort: ownerLabel },
     { id: 'officer', label: 'Inspection officer', def: false, text: (r) => r.officer, sort: (r) => D.norm(r.officer) },
@@ -1913,52 +1913,49 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     { id: 'closedDate', label: 'Date closed', def: false, text: (r) => U.fmtDate(r.closedOn), sort: (r) => r.closedOn || '' },
     { id: 'remark', label: 'Remark', def: false, text: (r) => r.remark, sort: (r) => D.norm(r.remark) },
   ];
-  E.colById = Object.fromEntries(E.COLUMNS.map((c) => [c.id, c]));
 
-  /* Export layout = the 20 register columns in their original order, filled from the app, then the workflow columns */
+  /* Export layout = the 20 register columns in their original order, filled from the app, then the workflow columns.
+   * h = header, w = column width in Excel, v = value; `insight` columns are left out for users without that permission. */
   const ORIGINAL = [
-    ['S/N', (r) => r.sn],
-    ['Status', (r) => (r.closed ? 'Closed' : 'Open')],
-    ['Inspection Officer / Comment by (Dept & Name)', (r) => r.officer],
-    ['Dates of Inspection(s)', (r) => U.fmtDateList(r.inspDates) || r.inspRaw],
-    ['Dates of Rectification(s) by LTA', (r) => U.fmtDate(fixDate(r))],
-    ["Defect's Date Closed", (r) => U.fmtDate(r.closedOn)],
-    ['Location', (r) => r.location],
-    ['Building No', (r) => r.building],
-    ['Level / Rm Name / Rm No.', (r) => r.level],
-    ['Defect Description', (r) => r.description],
-    ['Proposed Rectification / Improvements', (r) => r.proposed],
-    ['Defect Classification', (r) => r.classification],
-    ['Defect Photos (register / fix count)', (r) => r.nRegister + ' / ' + r.nFix],
-    ['Action', (r) => r.action],
-    ['Timeline to Follow-up (by LTA)', (r) => U.fmtDate(r.dueDate)],
-    ['Contact Person (STEL)', (r) => r.contact],
-    ['Action Party (LTA)', (r) => r.contractorName],
-    ['Defect Rectification (by LTA)', (r) => r.fixNote || ''],
-    ['Sign-Off by STEL', (r) => (r.closed ? 'Accepted by STEL on ' + U.fmtDate(r.closedOn) : '')],
-    ['Remark', (r) => r.remark],
-    ['Rectify ref', (r) => '#' + r.ref],
-    ['Stage', (r) => D.stageById[r.stage].label],
-    ['Waiting on', ownerLabel],
-    ['Rework', (r) => (r.open && r.rework ? 'Yes' : '')],
-    ['Age (days)', (r) => r.ageDays],
-    ['Overdue', (r) => (r.overdue ? 'Yes (' + r.daysOverdue + ' d)' : '')],
+    { h: 'S/N', w: 5, v: (r) => r.sn },
+    { h: 'Status', w: 9, v: (r) => (r.closed ? 'Closed' : 'Open') },
+    { h: 'Inspection Officer / Comment by (Dept & Name)', w: 24, v: (r) => r.officer },
+    { h: 'Dates of Inspection(s)', w: 18, v: (r) => U.fmtDateList(r.inspDates) || r.inspRaw },
+    { h: 'Dates of Rectification(s) by LTA', w: 16, v: (r) => U.fmtDate(fixDate(r)) },
+    { h: "Defect's Date Closed", w: 14, v: (r) => U.fmtDate(r.closedOn) },
+    { h: 'Location', w: 16, v: (r) => r.location },
+    { h: 'Building No', w: 12, v: (r) => r.building },
+    { h: 'Level / Rm Name / Rm No.', w: 20, v: (r) => r.level },
+    { h: 'Defect Description', w: 44, v: (r) => r.description },
+    { h: 'Proposed Rectification / Improvements', w: 40, v: (r) => r.proposed },
+    { h: 'Defect Classification', w: 16, v: (r) => r.classification },
+    { h: 'Defect Photos (register / fix count)', w: 12, v: (r) => r.nRegister + ' / ' + r.nFix },
+    { h: 'Action', w: 26, v: (r) => r.action },
+    { h: 'Timeline to Follow-up (by LTA)', w: 16, v: (r) => U.fmtDate(r.dueDate) },
+    { h: 'Contact Person (STEL)', w: 16, v: (r) => r.contact },
+    { h: 'Action Party (LTA)', w: 20, v: (r) => r.contractorName },
+    { h: 'Defect Rectification (by LTA)', w: 40, v: (r) => r.fixNote || '' },
+    { h: 'Sign-Off by STEL', w: 26, v: (r) => (r.closed ? 'Accepted by STEL on ' + U.fmtDate(r.closedOn) : '') },
+    { h: 'Remark', w: 14, v: (r) => r.remark },
+    { h: 'Rectify ref', w: 10, v: (r) => '#' + r.ref },
+    { h: 'Stage', w: 24, v: (r) => D.stageById[r.stage].label },
+    { h: 'Waiting on', w: 16, v: ownerLabel },
+    { h: 'Rework', w: 9, v: (r) => (r.open && r.rework ? 'Yes' : '') },
+    { h: 'Age (days)', w: 10, insight: true, v: (r) => r.ageDays },
+    { h: 'Overdue', w: 12, v: (r) => (r.overdue ? 'Yes (' + r.daysOverdue + ' d)' : '') },
   ];
-  const matrix = (rows) => [ORIGINAL.map((c) => c[0])].concat(rows.map((r) => ORIGINAL.map((c) => c[1](r))));
+  const exportColumns = () => ORIGINAL.filter((c) => !c.insight || DT.auth.can('insights'));
+  const matrix = (rows, cols) => [cols.map((c) => c.h)].concat(rows.map((r) => cols.map((c) => c.v(r))));
+  /* Table columns the current user may see */
+  E.visibleColumns = () => E.COLUMNS.filter((c) => !c.insight || DT.auth.can('insights'));
 
   E.csv = (rows) => {
-    const body = matrix(rows).map((r) => r.map(U.csvEscape).join(',')).join('\r\n');
+    const body = matrix(rows, exportColumns()).map((r) => r.map(U.csvEscape).join(',')).join('\r\n');
     return new Blob(['\ufeff' + body], { type: 'text/csv;charset=utf-8' });
   };
 
-  E.xlsx = (rows, ctx) => {
-    const wb = XLSX.utils.book_new();
-    const m = matrix(rows);
-    const ws = XLSX.utils.aoa_to_sheet(m);
-    ws['!cols'] = m[0].map((h, i) => ({ wch: [5, 9, 24, 18, 16, 14, 16, 12, 20, 44, 40, 16, 12, 26, 16, 16, 20, 40, 26, 14, 10, 24, 16, 9, 10, 12][i] || 14 }));
-    ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: m.length - 1, c: m[0].length - 1 } }) };
-    XLSX.utils.book_append_sheet(wb, ws, 'Defects');
-
+  /* Summary sheet: overall counts by stage and classification */
+  function appendSummary(wb, rows, ctx) {
     const s = D.summarize(rows);
     const sum = [
       [D.APP_NAME + ' – defect summary'],
@@ -1981,6 +1978,17 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const w2 = XLSX.utils.aoa_to_sheet(sum);
     w2['!cols'] = [{ wch: 34 }, { wch: 40 }];
     XLSX.utils.book_append_sheet(wb, w2, 'Summary');
+  }
+
+  E.xlsx = (rows, ctx) => {
+    const wb = XLSX.utils.book_new();
+    const cols = exportColumns();
+    const m = matrix(rows, cols);
+    const ws = XLSX.utils.aoa_to_sheet(m);
+    ws['!cols'] = cols.map((c) => ({ wch: c.w }));
+    ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: m.length - 1, c: m[0].length - 1 } }) };
+    XLSX.utils.book_append_sheet(wb, ws, 'Defects');
+    if (DT.auth.can('insights')) appendSummary(wb, rows, ctx);
 
     if (ctx.imports && ctx.imports.length) {
       const up = [['Uploaded', 'File', 'By', 'New defects', 'Already in system']].concat(ctx.imports.map((i) => [U.fmtDateTime(i.at), i.fileName, i.by.name, i.added, i.skipped]));
@@ -1994,6 +2002,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   /* ---------- printable report (Save as PDF from the print dialog) ---------- */
   E.print = async (rows, ctx, opts) => {
     opts = opts || {};
+    const insights = DT.auth.can('insights');
     const s = D.summarize(rows);
     const root = U.$('#printRoot');
     const kpi = (n, l) => '<div class="pr-kpi"><b>' + n + '</b><span>' + esc(l) + '</span></div>';
@@ -2003,12 +2012,12 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       '<section class="pr-page"><header class="pr-head"><div><h1>' + esc(D.APP_NAME) + '</h1><p>Defect report</p></div><div class="pr-meta">' +
       'As of ' + U.fmtDate(U.isoToday()) + (ctx.user ? '<br>Printed by ' + esc(ctx.user) : '') + '</div></header>' +
       (ctx.filtersText ? '<p class="pr-filter">Filtered view: ' + esc(ctx.filtersText) + '</p>' : '') +
-      '<div class="pr-kpis">' + kpi(s.total, 'Defects') + kpi(s.open, 'Open') + kpi(s.safetyOpen, 'Safety Related, open') + kpi(s.byStage.awaiting, 'Awaiting STEL acceptance') + kpi(s.overdue, 'Overdue') + kpi(s.closed, 'Closed') + '</div>' +
+      (insights ? '<div class="pr-kpis">' + kpi(s.total, 'Defects') + kpi(s.open, 'Open') + kpi(s.safetyOpen, 'Safety Related, open') + kpi(s.byStage.awaiting, 'Awaiting STEL acceptance') + kpi(s.overdue, 'Overdue') + kpi(s.closed, 'Closed') + '</div>' +
       '<div class="pr-cols"><div><h2>By stage</h2><table class="pr-mini">' + D.STAGES.map((st) => bar(st.label, s.byStage[st.id], st.color)).join('') + '</table></div>' +
-      '<div><h2>By classification</h2><table class="pr-mini">' + D.CLASSES.map((c) => bar(c.id, s.byClass[c.id] || 0, c.color)).join('') + '</table></div></div>' +
-      '<h2>Defect list (' + rows.length + ')</h2><table class="pr-table"><thead><tr><th>Ref</th><th>S/N</th><th>Stage</th><th>Class</th><th>Location · Building · Level</th><th>Description</th><th>Contractor</th><th>Target</th><th>Age</th></tr></thead><tbody>' +
+      '<div><h2>By classification</h2><table class="pr-mini">' + D.CLASSES.map((c) => bar(c.id, s.byClass[c.id] || 0, c.color)).join('') + '</table></div></div>' : '') +
+      '<h2>Defect list (' + rows.length + ')</h2><table class="pr-table"><thead><tr><th>Ref</th><th>S/N</th><th>Stage</th><th>Class</th><th>Location · Building · Level</th><th>Description</th><th>Contractor</th><th>Target</th>' + (insights ? '<th>Age</th>' : '') + '</tr></thead><tbody>' +
       rows.map((r) =>
-        '<tr><td>#' + r.ref + '</td><td>' + esc(r.sn) + '</td><td>' + esc(D.stageById[r.stage].short) + (r.overdue ? '<br><em>overdue</em>' : '') + '</td><td>' + esc(r.classification) + '</td><td>' + esc([r.location, r.building, r.level].filter(Boolean).join(' · ')) + '</td><td>' + esc(r.description) + '</td><td>' + esc(r.contractorName) + '</td><td>' + esc(U.fmtDate(r.dueDate)) + '</td><td>' + r.ageDays + ' d</td></tr>'
+        '<tr><td>#' + r.ref + '</td><td>' + esc(r.sn) + '</td><td>' + esc(D.stageById[r.stage].short) + (r.overdue ? '<br><em>overdue</em>' : '') + '</td><td>' + esc(r.classification) + '</td><td>' + esc([r.location, r.building, r.level].filter(Boolean).join(' · ')) + '</td><td>' + esc(r.description) + '</td><td>' + esc(r.contractorName) + '</td><td>' + esc(U.fmtDate(r.dueDate)) + '</td>' + (insights ? '<td>' + r.ageDays + ' d</td>' : '') + '</tr>'
       ).join('') + '</tbody></table></section>';
 
     if (opts.photos) {
@@ -2403,12 +2412,13 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   const A = (DT.auth = {});
   const SESSION_KEY = 'rectify.user';
 
-  /* What each role may do outside the workflow. Workflow actions (assign, submit fix …) are in workflow.js. */
+  /* What each role may do outside the workflow. Workflow actions (assign, submit fix …) are in workflow.js.
+   * `insights` = the Overview dashboard, defect age and summary figures in exports (not given to STEL). */
   A.ROLES = {
-    admin: { label: 'Admin', blurb: 'Master control: contractors, settings and every action', can: ['upload', 'viewAll', 'imports', 'export', 'comment', 'settings'] },
+    admin: { label: 'Admin', blurb: 'Master control: contractors, settings and every action', can: ['upload', 'viewAll', 'imports', 'export', 'comment', 'settings', 'insights'] },
     stel: { label: 'STEL', blurb: 'Uploads the defect register and accepts finished fixes', can: ['upload', 'viewAll', 'imports', 'export', 'comment'] },
-    lta: { label: 'LTA', blurb: 'Reviews defects, assigns contractors and approves fixes', can: ['viewAll', 'imports', 'export', 'comment'] },
-    contractor: { label: 'Contractor', blurb: 'Fixes the defects assigned to their company', can: ['export', 'comment'] },
+    lta: { label: 'LTA', blurb: 'Reviews defects, assigns contractors and approves fixes', can: ['viewAll', 'imports', 'export', 'comment', 'insights'] },
+    contractor: { label: 'Contractor', blurb: 'Fixes the defects assigned to their company', can: ['export', 'comment', 'insights'] },
   };
 
   const FIXED_USERS = [
@@ -3362,17 +3372,19 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
   /* ---------- routing ---------- */
   const ROUTES = [
-    { id: 'overview', label: 'Overview' },
+    { id: 'overview', label: 'Overview', can: 'insights' },
     { id: 'defects', label: 'Defects' },
     { id: 'imports', label: 'Uploads', can: 'imports' },
     { id: 'emails', label: 'Emails' },
     { id: 'settings', label: 'Settings', can: 'settings' },
   ];
   const allowedRoutes = () => ROUTES.filter((r) => !r.can || DT.auth.can(r.can));
+  /* The first page this user may open: Overview, or Defects for roles without the dashboard */
+  const homeRoute = () => allowedRoutes()[0].id;
   App.route = () => {
     const parts = (location.hash || '').replace(/^#\/?/, '').split('/');
     const r = allowedRoutes().find((x) => x.id === parts[0]);
-    return { id: r ? r.id : 'overview', param: r && parts[1] ? decodeURIComponent(parts[1]) : null };
+    return { id: r ? r.id : homeRoute(), param: r && parts[1] ? decodeURIComponent(parts[1]) : null };
   };
   App.go = (r) => {
     if (location.hash === '#/' + r) App.render();
@@ -3434,7 +3446,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const app = U.$('#app');
     app.innerHTML =
       '<header class="nav"><div class="nav-in">' +
-      '<a class="brand" href="#/overview"><span class="logo">' + UI.logo(26) + '</span><span>' + esc(D.APP_NAME) + '</span></a>' +
+      '<a class="brand" href="#/' + homeRoute() + '"><span class="logo">' + UI.logo(26) + '</span><span>' + esc(D.APP_NAME) + '</span></a>' +
       '<nav class="tabs" id="tabs" aria-label="Main"><span class="tab-ind"></span>' +
       allowedRoutes().map((r) => '<a href="#/' + r.id + '" data-r="' + r.id + '">' + esc(r.label) + (r.id === 'emails' ? '<em class="badge" id="emailBadge" hidden></em>' : '') + '</a>').join('') +
       '</nav>' +
@@ -3466,7 +3478,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     UI.toast('Signed in as ' + DT.auth.roleLabel(u));
     const section = (location.hash || '').replace(/^#\/?/, '').split('/')[0];
     if (!allowedRoutes().some((r) => r.id === section)) {
-      location.hash = '#/overview'; /* the hashchange handler renders the page */
+      location.hash = '#/' + homeRoute(); /* the hashchange handler renders the page */
       return;
     }
     App.render();
@@ -3807,9 +3819,13 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     });
   }
 
+  /* Columns this user may see, by id (Age needs the 'insights' permission) */
+  const visibleColById = () => Object.fromEntries(E.visibleColumns().map((c) => [c.id, c]));
+
   /* ---------- sorting ---------- */
   function sorted(list) {
-    const keys = S.sort.map((s) => ({ c: E.colById[s.id], dir: s.dir })).filter((k) => k.c);
+    const cols = visibleColById();
+    const keys = S.sort.map((s) => ({ c: cols[s.id], dir: s.dir })).filter((k) => k.c);
     return list.slice().sort((a, b) => {
       for (const k of keys) {
         const x = k.c.sort(a),
@@ -3966,7 +3982,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   }
 
   function tableView(box, rows) {
-    const cols = S.cols.map((id) => E.colById[id]).filter(Boolean);
+    const visible = visibleColById();
+    const cols = S.cols.map((id) => visible[id]).filter(Boolean);
     const size = S.pageSize === 0 ? rows.length : S.pageSize;
     const pages = Math.max(1, Math.ceil(rows.length / size));
     S.page = Math.min(S.page, pages);
@@ -4087,8 +4104,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const m = UI.modal({
       title: 'Columns',
       width: 420,
-      body: '<p class="confirm-text">Choose what the table shows. Every field is always kept on the defect record.</p><div class="facet-list cols">' + E.COLUMNS.map((c) => '<label class="check"><input type="checkbox" value="' + c.id + '"' + (sel.has(c.id) ? ' checked' : '') + '><span>' + esc(c.label) + '</span></label>').join('') + '</div>',
+      body: '<p class="confirm-text">Choose what the table shows. Every field is always kept on the defect record.</p><div class="facet-list cols">' + E.visibleColumns().map((c) => '<label class="check"><input type="checkbox" value="' + c.id + '"' + (sel.has(c.id) ? ' checked' : '') + '><span>' + esc(c.label) + '</span></label>').join('') + '</div>',
       footer: '<button class="btn" id="colReset">Reset</button><button class="btn primary" data-close>Done</button>',
+      /* columns hidden from this user keep their saved setting for the users who can see them */
       onClose: () => {
         S.cols = E.COLUMNS.filter((c) => sel.has(c.id)).map((c) => c.id);
         if (!S.cols.length) S.cols = ['ref', 'description'];
@@ -4186,7 +4204,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       (r.snIssue === 'duplicate' ? '<div class="note-box">The register used S/N <b>' + esc(r.snRaw) + '</b> more than once. This one was numbered <b>' + esc(r.sn) + '</b> so nothing is mixed up.</div>' : '') +
       (r.classSuspect ? '<div class="note-box warn">The Classification cell did not contain a standard classification, so this defect shows as Unclassified. Original text: “' + esc(U.truncate(r.classificationRaw, 200)) + '”</div>' : '') +
       '<dl class="kvs">' + f('Location', r.location) + f('Building', r.building) + f('Level / Room', r.level) + f('Inspection officer', r.officer) + f('Contact person (STEL)', r.contact) + f('Dates of inspection', U.fmtDateList(r.inspDates) || r.inspRaw) +
-      f('Contractor', r.contractorName || 'Not assigned') + f('Target date', U.fmtDate(r.dueDate)) + f('Age', r.ageDays + ' days' + (r.open ? ' and counting' : ' to close')) + f('Remark', r.remark) + '</dl>' +
+      f('Contractor', r.contractorName || 'Not assigned') + f('Target date', U.fmtDate(r.dueDate)) + (DT.auth.can('insights') ? f('Age', r.ageDays + ' days' + (r.open ? ' and counting' : ' to close')) : '') + f('Remark', r.remark) + '</dl>' +
       '<dl class="kvs one">' + f('Proposed rectification', r.proposed, true) + f('Contractor’s latest fix note', r.fixNote, true) + '</dl>' +
       gallery('Register photos', photos.filter((p) => p.kind !== 'fix')) + gallery('Contractor fix photos', photos.filter((p) => p.kind === 'fix')) +
       (r.photoNotes && r.photoNotes.length ? '<div class="note-box">Text found on the photos: ' + esc(r.photoNotes.join(' · ')) + '</div>' : '') +
